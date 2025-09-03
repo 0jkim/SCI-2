@@ -1,12 +1,11 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
 
-#ifndef NR_ENB_NET_DEVICE_H
-#define NR_ENB_NET_DEVICE_H
+#ifndef NR_GNB_NET_DEVICE_H
+#define NR_GNB_NET_DEVICE_H
 
+#include "nr-fh-control.h"
 #include "nr-net-device.h"
 
 #include "ns3/traced-callback.h"
@@ -19,9 +18,9 @@ class PacketBurst;
 class Node;
 class NrGnbPhy;
 class NrGnbMac;
-class LteEnbRrc;
+class NrGnbRrc;
 class BandwidthPartGnb;
-class LteEnbComponentCarrierManager;
+class NrGnbComponentCarrierManager;
 class BwpManagerGnb;
 class NrMacScheduler;
 
@@ -68,9 +67,9 @@ class NrGnbNetDevice : public NrNetDevice
 
     uint16_t GetEarfcn(uint8_t index) const;
 
-    void SetRrc(Ptr<LteEnbRrc> rrc);
+    void SetRrc(Ptr<NrGnbRrc> rrc);
 
-    Ptr<LteEnbRrc> GetRrc();
+    Ptr<NrGnbRrc> GetRrc();
 
     void SetCcMap(const std::map<uint8_t, Ptr<BandwidthPartGnb>>& ccm);
 
@@ -79,6 +78,18 @@ class NrGnbNetDevice : public NrNetDevice
      * \return the number of cc that we have
      */
     uint32_t GetCcMapSize() const;
+
+    /**
+     * \brief Set the NrFhControl for this cell
+     * \param nrFh The ptr to the NrFhControl
+     */
+    void SetNrFhControl(Ptr<NrFhControl> nrFh);
+
+    /**
+     * \brief Get the NrFhControl for this cell
+     * \return the ptr to NrFhControl
+     */
+    Ptr<NrFhControl> GetNrFhControl();
 
     /**
      * \brief The gNB received a CTRL message list.
@@ -103,6 +114,34 @@ class NrGnbNetDevice : public NrNetDevice
      */
     void UpdateConfig();
 
+    /**
+     * \brief Get downlink bandwidth for a given physical cell Id
+     * \param cellId Physical cell Id
+     * \return number of RBs
+     */
+    uint16_t GetCellIdDlBandwidth(uint16_t cellId) const;
+
+    /**
+     * \brief Get uplink bandwidth for a given physical cell Id
+     * \param cellId Physical cell Id
+     * \return number of RBs
+     */
+    uint16_t GetCellIdUlBandwidth(uint16_t cellId) const;
+
+    /**
+     * \brief Get uplink earfcn for a given physical cell Id
+     * \param cellId Physical cell Id
+     * \return downlink earfcn
+     */
+    uint32_t GetCellIdDlEarfcn(uint16_t cellId) const;
+
+    /**
+     * \brief Get uplink earfcn for a given physical cell Id
+     * \param cellId Physical cell Id
+     * \return uplink earfcn
+     */
+    uint32_t GetCellIdUlEarfcn(uint16_t cellId) const;
+
   protected:
     void DoInitialize() override;
 
@@ -110,16 +149,17 @@ class NrGnbNetDevice : public NrNetDevice
     bool DoSend(Ptr<Packet> packet, const Address& dest, uint16_t protocolNumber) override;
 
   private:
-    Ptr<LteEnbRrc> m_rrc;
+    Ptr<NrGnbRrc> m_rrc;
 
     uint16_t m_cellId; //!< Cell ID. Set by the helper.
 
-    std::map<uint8_t, Ptr<BandwidthPartGnb>> m_ccMap; /**< ComponentCarrier map */
+    std::map<uint8_t, Ptr<BandwidthPartGnb>> m_ccMap; /**< NrComponentCarrier map */
 
-    Ptr<LteEnbComponentCarrierManager>
-        m_componentCarrierManager; ///< the component carrier manager of this eNb
+    Ptr<NrGnbComponentCarrierManager>
+        m_componentCarrierManager; ///< the component carrier manager of this gNB
+    Ptr<NrFhControl> m_nrFhControl;
 };
 
 } // namespace ns3
 
-#endif /* NR_ENB_NET_DEVICE_H */
+#endif /* NR_GNB_NET_DEVICE_H */

@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2017 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -11,7 +9,6 @@
 
 #include <ns3/abort.h>
 #include <ns3/boolean.h>
-#include <ns3/ff-mac-scheduler.h>
 #include <ns3/log.h>
 #include <ns3/pointer.h>
 
@@ -25,28 +22,28 @@ TypeId
 BandwidthPartGnb::GetTypeId()
 {
     static TypeId tid = TypeId("ns3::BandwidthPartGnb")
-                            .SetParent<ComponentCarrierBaseStation>()
+                            .SetParent<NrComponentCarrier>()
                             .AddConstructor<BandwidthPartGnb>()
                             .AddAttribute("NrGnbPhy",
-                                          "The PHY associated to this EnbNetDevice",
+                                          "The PHY associated to this GnbNetDevice",
                                           PointerValue(),
                                           MakePointerAccessor(&BandwidthPartGnb::m_phy),
                                           MakePointerChecker<NrGnbPhy>())
                             .AddAttribute("NrGnbMac",
-                                          "The MAC associated to this EnbNetDevice",
+                                          "The MAC associated to this GnbNetDevice",
                                           PointerValue(),
                                           MakePointerAccessor(&BandwidthPartGnb::m_mac),
                                           MakePointerChecker<NrGnbMac>())
-                            .AddAttribute("FfMacScheduler",
-                                          "The scheduler associated to this EnbNetDevice",
+                            .AddAttribute("MacScheduler",
+                                          "The scheduler associated to this GnbNetDevice",
                                           PointerValue(),
                                           MakePointerAccessor(&BandwidthPartGnb::m_scheduler),
-                                          MakePointerChecker<FfMacScheduler>());
+                                          MakePointerChecker<NrMacScheduler>());
     return tid;
 }
 
 BandwidthPartGnb::BandwidthPartGnb()
-    : ComponentCarrierBaseStation()
+    : NrComponentCarrier()
 {
     NS_LOG_FUNCTION(this);
     m_phy = nullptr;
@@ -121,6 +118,19 @@ BandwidthPartGnb::SetAsPrimary(bool primaryCarrier)
     {
         m_phy->SetPrimary();
     }
+}
+
+uint16_t
+BandwidthPartGnb::GetCellId() const
+{
+    return m_cellId;
+}
+
+void
+BandwidthPartGnb::SetCellId(uint16_t cellId)
+{
+    NS_LOG_FUNCTION(this << cellId);
+    m_cellId = cellId;
 }
 
 } // namespace ns3

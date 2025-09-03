@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -9,6 +7,7 @@
 #include <ns3/node.h>
 #include <ns3/nr-ch-access-manager.h>
 #include <ns3/nr-gnb-phy.h>
+#include <ns3/nr-interference-base.h>
 #include <ns3/nr-mac-scheduler-tdma-rr.h>
 #include <ns3/object-factory.h>
 #include <ns3/test.h>
@@ -149,20 +148,20 @@ TestGnbMac::SetCurrentSfn(const SfnSf& sfnSf)
 /**
  * \brief TestCase for the PHY TDD Patterns
  */
-class LtePhyPatternTestCase : public TestCase
+class NrPhyPatternTestCase : public TestCase
 {
   public:
     /**
-     * \brief Create LtePatternTestCase
+     * \brief Create NrPatternTestCase
      * \param name Name of the test
      */
-    LtePhyPatternTestCase(const std::string& pattern, const std::string& name)
+    NrPhyPatternTestCase(const std::string& pattern, const std::string& name)
         : TestCase(name),
           m_pattern(pattern)
     {
     }
 
-    ~LtePhyPatternTestCase() override;
+    ~NrPhyPatternTestCase() override;
 
   private:
     void DoRun() override;
@@ -177,7 +176,7 @@ class LtePhyPatternTestCase : public TestCase
     std::string m_pattern;
 };
 
-LtePhyPatternTestCase::~LtePhyPatternTestCase()
+NrPhyPatternTestCase::~NrPhyPatternTestCase()
 {
     if (m_phy)
     {
@@ -187,7 +186,7 @@ LtePhyPatternTestCase::~LtePhyPatternTestCase()
 }
 
 void
-LtePhyPatternTestCase::DoRun()
+NrPhyPatternTestCase::DoRun()
 {
     ObjectFactory schedFactory;
     schedFactory.SetTypeId(NrMacSchedulerTdmaRR::GetTypeId());
@@ -208,7 +207,7 @@ LtePhyPatternTestCase::DoRun()
 }
 
 void
-LtePhyPatternTestCase::StartSimu()
+NrPhyPatternTestCase::StartSimu()
 {
     Simulator::Stop(MilliSeconds(200));
     Simulator::Run();
@@ -216,7 +215,7 @@ LtePhyPatternTestCase::StartSimu()
 }
 
 Ptr<NrGnbPhy>
-LtePhyPatternTestCase::CreatePhy(const Ptr<NrGnbMac>& mac) const
+NrPhyPatternTestCase::CreatePhy(const Ptr<NrGnbMac>& mac) const
 {
     Ptr<NrSpectrumPhy> channelPhy = CreateObject<NrSpectrumPhy>();
     Ptr<NrGnbPhy> phy = CreateObject<NrGnbPhy>();
@@ -236,7 +235,7 @@ LtePhyPatternTestCase::CreatePhy(const Ptr<NrGnbMac>& mac) const
     Ptr<NrHarqPhy> harq = Create<NrHarqPhy>();
     channelPhy->InstallHarqPhyModule(harq);
 
-    Ptr<LteChunkProcessor> pData = Create<LteChunkProcessor>();
+    Ptr<NrChunkProcessor> pData = Create<NrChunkProcessor>();
     channelPhy->AddDataSinrChunkProcessor(pData);
 
     channelPhy->InstallPhy(phy);
@@ -249,7 +248,7 @@ LtePhyPatternTestCase::CreatePhy(const Ptr<NrGnbMac>& mac) const
 }
 
 Ptr<NrGnbMac>
-LtePhyPatternTestCase::CreateMac(const Ptr<NrMacScheduler>& sched) const
+NrPhyPatternTestCase::CreateMac(const Ptr<NrMacScheduler>& sched) const
 {
     Ptr<NrGnbMac> mac = CreateObject<TestGnbMac>(m_pattern);
 
@@ -263,9 +262,9 @@ LtePhyPatternTestCase::CreateMac(const Ptr<NrMacScheduler>& sched) const
 }
 
 void
-LtePhyPatternTestCase::Print(const std::string& msg1,
-                             const std::string& msg2,
-                             const std::map<uint32_t, std::vector<uint32_t>>& str)
+NrPhyPatternTestCase::Print(const std::string& msg1,
+                            const std::string& msg2,
+                            const std::map<uint32_t, std::vector<uint32_t>>& str)
 {
     for (const auto& v : str)
     {
@@ -276,46 +275,46 @@ LtePhyPatternTestCase::Print(const std::string& msg1,
     }
 }
 
-class NrLtePatternsTestSuite : public TestSuite
+class NrPatternsTestSuite : public TestSuite
 {
   public:
-    NrLtePatternsTestSuite()
+    NrPatternsTestSuite()
         : TestSuite("nr-phy-patterns", Type::UNIT)
     {
         AddTestCase(
-            new LtePhyPatternTestCase("DL|S|UL|UL|DL|DL|S|UL|UL|DL|", "LTE TDD Pattern 1 test"),
+            new NrPhyPatternTestCase("DL|S|UL|UL|DL|DL|S|UL|UL|DL|", "LTE TDD Pattern 1 test"),
             Duration::QUICK);
 
         AddTestCase(
-            new LtePhyPatternTestCase("DL|S|UL|DL|DL|DL|S|UL|DL|DL|", "LTE TDD Pattern 2 test"),
+            new NrPhyPatternTestCase("DL|S|UL|DL|DL|DL|S|UL|DL|DL|", "LTE TDD Pattern 2 test"),
             Duration::QUICK);
 
         AddTestCase(
-            new LtePhyPatternTestCase("DL|S|UL|UL|UL|DL|DL|DL|DL|DL|", "LTE TDD Pattern 3 test"),
+            new NrPhyPatternTestCase("DL|S|UL|UL|UL|DL|DL|DL|DL|DL|", "LTE TDD Pattern 3 test"),
             Duration::QUICK);
 
         AddTestCase(
-            new LtePhyPatternTestCase("DL|S|UL|UL|DL|DL|DL|DL|DL|DL|", "LTE TDD Pattern 4 test"),
+            new NrPhyPatternTestCase("DL|S|UL|UL|DL|DL|DL|DL|DL|DL|", "LTE TDD Pattern 4 test"),
             Duration::QUICK);
 
         AddTestCase(
-            new LtePhyPatternTestCase("DL|S|UL|DL|DL|DL|DL|DL|DL|DL|", "LTE TDD Pattern 5 test"),
+            new NrPhyPatternTestCase("DL|S|UL|DL|DL|DL|DL|DL|DL|DL|", "LTE TDD Pattern 5 test"),
             Duration::QUICK);
 
         AddTestCase(
-            new LtePhyPatternTestCase("DL|S|UL|UL|UL|DL|S|UL|UL|DL|", "LTE TDD Pattern 6 test"),
+            new NrPhyPatternTestCase("DL|S|UL|UL|UL|DL|S|UL|UL|DL|", "LTE TDD Pattern 6 test"),
             Duration::QUICK);
 
         AddTestCase(
-            new LtePhyPatternTestCase("DL|S|UL|UL|UL|DL|S|UL|UL|UL|", "LTE TDD Pattern 0 test"),
+            new NrPhyPatternTestCase("DL|S|UL|UL|UL|DL|S|UL|UL|UL|", "LTE TDD Pattern 0 test"),
             Duration::QUICK);
 
-        AddTestCase(new LtePhyPatternTestCase("F|F|F|F|F|F|F|F|F|F|", "LTE TDD Pattern NR test"),
+        AddTestCase(new NrPhyPatternTestCase("F|F|F|F|F|F|F|F|F|F|", "LTE TDD Pattern NR test"),
                     Duration::QUICK);
     }
 };
 
-static NrLtePatternsTestSuite nrLtePatternsTestSuite;
+static NrPatternsTestSuite nrNrPatternsTestSuite;
 
 //!< Pattern test suite
 

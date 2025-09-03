@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -40,7 +38,7 @@ class NrPhySapProvider
     /**
      * \brief ~NrPhySapProvider
      */
-    virtual ~NrPhySapProvider();
+    virtual ~NrPhySapProvider() = default;
 
     /**
      * \brief Send a Mac PDU
@@ -50,7 +48,7 @@ class NrPhySapProvider
      * \param rnti the RNTI of the receiving or transmitting UE, to map PDU to each UE's PHY signal
      *
      * The MAC sends to the PHY a MAC PDU, represented by the packet p. The PDU
-     * MUST have a LteRadioBearerTag and a NrMacPduHeader.
+     * MUST have a NrRadioBearerTag and a NrMacPduHeader.
      */
     virtual void SendMacPdu(const Ptr<Packet>& p,
                             const SfnSf& sfn,
@@ -140,7 +138,7 @@ class NrPhySapProvider
 };
 
 /**
- * \brief SAP interface between the ENB PHY and the ENB MAC
+ * \brief SAP interface between the gNB PHY and the gNB MAC
  * \ingroup gnb-phy
  * \ingroup gnb-mac
  *
@@ -159,9 +157,7 @@ class NrGnbPhySapUser
     /**
      * \brief ~NrGnbPhySapUser
      */
-    virtual ~NrGnbPhySapUser()
-    {
-    }
+    virtual ~NrGnbPhySapUser() = default;
 
     /**
      * \brief Notify the MAC of the reception of a new PHY-PDU
@@ -171,7 +167,7 @@ class NrGnbPhySapUser
     virtual void ReceivePhyPdu(Ptr<Packet> p) = 0;
 
     /**
-     * \brief Receive SendLteControlMessage (PDCCH map, CQI feedbacks) using the ideal control
+     * \brief Receive SendNrControlMessage (PDCCH map, CQI feedbacks) using the ideal control
      * channel \param msg the Ideal Control Message to receive
      */
     virtual void ReceiveControlMessage(Ptr<NrControlMessage> msg) = 0;
@@ -282,7 +278,7 @@ class NrUePhySapUser
     virtual void ReceivePhyPdu(Ptr<Packet> p) = 0;
 
     /**
-     * \brief Receive SendLteControlMessage (PDCCH map, CQI feedbacks) using the ideal control
+     * \brief Receive SendNrControlMessage (PDCCH map, CQI feedbacks) using the ideal control
      * channel \param msg the Ideal Control Message to receive
      */
     virtual void ReceiveControlMessage(Ptr<NrControlMessage> msg) = 0;

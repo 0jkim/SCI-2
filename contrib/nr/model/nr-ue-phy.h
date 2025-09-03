@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -9,11 +7,11 @@
 
 #include "nr-amc.h"
 #include "nr-harq-phy.h"
+#include "nr-phy-sap.h"
 #include "nr-phy.h"
 #include "nr-pm-search.h"
+#include "nr-ue-cphy-sap.h"
 
-#include <ns3/lte-ue-cphy-sap.h>
-#include <ns3/lte-ue-phy-sap.h>
 #include <ns3/traced-callback.h>
 
 namespace ns3
@@ -50,7 +48,7 @@ class NrUePowerControl;
  * messages that come from the gNb. However, we still are not at this level,
  * and we have to rely on direct calls to configure the same values between
  * the gnb and the ue. At this moment, the call that the helper has to perform
- * are in NrHelper::AttachToEnb().
+ * are in NrHelper::AttachToGnb().
  *
  * To initialize the class, you must call also SetSpectrumPhy() and StartEventLoop().
  * Usually, this is taken care inside the helper.
@@ -60,8 +58,8 @@ class NrUePowerControl;
  */
 class NrUePhy : public NrPhy
 {
-    friend class UeMemberLteUePhySapProvider;
-    friend class MemberLteUeCphySapProvider<NrUePhy>;
+    friend class UeMemberNrUePhySapProvider;
+    friend class MemberNrUeCphySapProvider<NrUePhy>;
 
   public:
     /**
@@ -84,13 +82,13 @@ class NrUePhy : public NrPhy
      * \brief Retrieve the pointer for the C PHY SAP provider (AKA the PHY interface towards the
      * RRC) \return the C PHY SAP pointer
      */
-    LteUeCphySapProvider* GetUeCphySapProvider() __attribute__((warn_unused_result));
+    NrUeCphySapProvider* GetUeCphySapProvider() __attribute__((warn_unused_result));
 
     /**
      * \brief Install ue C PHY SAP user (AKA the PHY interface towards the RRC)
      * \param s the C PHY SAP user pointer to install
      */
-    void SetUeCphySapUser(LteUeCphySapUser* s);
+    void SetUeCphySapUser(NrUeCphySapUser* s);
 
     /**
      * \brief Install the PHY sap user (AKA the UE MAC)
@@ -128,9 +126,9 @@ class NrUePhy : public NrPhy
     double GetRsrp() const;
 
     /**
-     * \brief Get LTE uplink power control entity
+     * \brief Get NR uplink power control entity
      *
-     * \return ptr pointer to LTE uplink power control entity
+     * \return ptr pointer to NR uplink power control entity
      */
     Ptr<NrUePowerControl> GetUplinkPowerControl() const;
 
@@ -148,7 +146,7 @@ class NrUePhy : public NrPhy
     void SetUplinkPowerControl(Ptr<NrUePowerControl> pc);
 
     /**
-     * \brief Register the UE to a certain Enb
+     * \brief Register the UE to a certain Gnb
      *
      * Install the configuration parameters in the UE.
      *
@@ -156,7 +154,7 @@ class NrUePhy : public NrPhy
      *
      *
      */
-    void RegisterToEnb(uint16_t bwpId);
+    void RegisterToGnb(uint16_t bwpId);
 
     /**
      * \brief Set the AMC pointer from the GNB
@@ -434,6 +432,23 @@ class NrUePhy : public NrPhy
     /// \param sinr the SINR
     void ReportRsrpSinrTrace(const SpectrumValue& sinr);
 
+    /**
+     * TracedCallback signature for cell RSRP and RSRQ.
+     *
+     * \param [in] rnti
+     * \param [in] cellId
+     * \param [in] rsrp
+     * \param [in] rsrq
+     * \param [in] isServingCell
+     * \param [in] componentCarrierId
+     */
+    typedef void (*RsrpRsrqTracedCallback)(uint16_t rnti,
+                                           uint16_t cellId,
+                                           double rsrp,
+                                           double rsrq,
+                                           bool isServingCell,
+                                           uint8_t componentCarrierId);
+
     /// \brief Generate DL CQI, PMI, and RI (channel quality precoding matrix and rank indicators)
     /// \param mimoChunks a vector of parameters of the received signals and interference
     void GenerateDlCqiReportMimo(const std::vector<MimoSignalChunk>& mimoChunks);
@@ -469,7 +484,7 @@ class NrUePhy : public NrPhy
     void ReportUeMeasurements();
 
     /**
-     * \brief Compute the AvgSinr (copied from LteUePhy)
+     * \brief Compute the AvgSinr (copied from NrUePhy)
      * \param sinr the SINR
      * \return the average on all the RB
      */
@@ -641,8 +656,8 @@ class NrUePhy : public NrPhy
     // SAP methods
     void DoReset();
     void DoStartCellSearch(uint16_t dlEarfcn);
-    void DoSynchronizeWithEnb(uint16_t cellId);
-    void DoSynchronizeWithEnb(uint16_t cellId, uint16_t dlEarfcn);
+    void DoSynchronizeWithGnb(uint16_t cellId);
+    void DoSynchronizeWithGnb(uint16_t cellId, uint16_t dlEarfcn);
     void DoSetPa(double pa);
     /**
      * \param rsrpFilterCoefficient value. Determines the strength of
@@ -700,6 +715,10 @@ class NrUePhy : public NrPhy
      */
     void DoResetRlfParams();
 
+    void InitializeRlfParams();
+
+    void RlfDetection(double sinrDb);
+
     /**
      * \brief Start in Sync detection function
      *
@@ -740,9 +759,29 @@ class NrUePhy : public NrPhy
      */
     void InsertFutureAllocation(const SfnSf& sfnSf, const std::shared_ptr<DciInfoElementTdma>& dci);
 
-    NrUePhySapUser* m_phySapUser;              //!< SAP pointer
-    LteUeCphySapProvider* m_ueCphySapProvider; //!< SAP pointer
-    LteUeCphySapUser* m_ueCphySapUser;         //!< SAP pointer
+    /**
+     * \brief Send the Rach Preamble
+     *
+     * The RACH PREAMBLE is sent ASAP, without applying any delay,
+     * since it is sent in the PRACH channel
+     *
+     * \param PreambleId preamble ID
+     * \param Rnti RNTI
+     */
+    void SendRachPreamble(uint32_t PreambleId, uint32_t Rnti) override;
+
+    /**
+     * \brief Process received RAR UL grants
+     *
+     * Process RAR UL grants received after sending a RACH preamble
+     *
+     * \param rarMsg RAR UL grant
+     */
+    void ProcessRar(const Ptr<NrRarMessage>& rarMsg);
+
+    NrUePhySapUser* m_phySapUser;             //!< SAP pointer
+    NrUeCphySapProvider* m_ueCphySapProvider; //!< SAP pointer
+    NrUeCphySapUser* m_ueCphySapUser;         //!< SAP pointer
 
     bool m_enableUplinkPowerControl{
         false};                           //!< Flag that indicates whether power control is enabled
@@ -872,6 +911,44 @@ class NrUePhy : public NrPhy
      */
     TracedCallback<SfnSf, uint16_t, uint16_t, uint8_t, uint8_t, uint32_t>
         m_phyUeTxedHarqFeedbackTrace;
+
+    /**
+     * The `ReportUeMeasurements` trace source. Contains trace information
+     * regarding RSRP and RSRQ measured from a specific cell (see TS 36.214).
+     * Exporting RNTI, the ID of the measured cell, RSRP (in dBm), RSRQ (in dB),
+     * and whether the cell is the serving cell. Moreover it report the m_componentCarrierId.
+     */
+    TracedCallback<uint16_t, uint16_t, double, double, bool, uint8_t> m_reportUeMeasurements;
+
+    bool m_isConnected;
+    void DoNotifyConnectionSuccessful();
+    /**
+     * The 'Qin' attribute.
+     * corresponds to 2% block error rate of a hypothetical PDCCH transmission
+     * taking into account the PCFICH errors.
+     */
+    double m_qIn;
+
+    /**
+     * The 'Qout' attribute.
+     * corresponds to 2% block error rate of a hypothetical PDCCH transmission
+     * taking into account the PCFICH errors.
+     */
+    double m_qOut;
+
+    uint16_t m_numOfQoutEvalSf; ///< the downlink radio link quality is estimated over this period
+    ///< for detecting out-of-syncs
+    uint16_t m_numOfQinEvalSf; ///< the downlink radio link quality is estimated over this period
+    ///< for detecting in-syncs
+    bool m_downlinkInSync; ///< when set, DL SINR evaluation for out-of-sync indications is
+    ///< conducted.
+    uint16_t m_numOfSubframes; ///< count the number of subframes for which the downlink radio link
+    ///< quality is estimated
+    uint16_t m_numOfFrames; ///< count the number of frames for which the downlink radio link
+    ///< quality is estimated
+    double m_sinrDbFrame;           ///< the average SINR per radio frame
+    SpectrumValue m_ctrlSinrForRlf; ///< the CTRL SINR used for RLF detection
+    bool m_enableRlfDetection;      ///< Flag to enable/disable RLF detection
 };
 
 } // namespace ns3

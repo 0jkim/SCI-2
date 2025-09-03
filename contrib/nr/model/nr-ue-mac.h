@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -7,10 +5,10 @@
 #ifndef NR_UE_MAC_H
 #define NR_UE_MAC_H
 
+#include "nr-ccm-mac-sap.h"
 #include "nr-phy-mac-common.h"
+#include "nr-ue-cmac-sap.h"
 
-#include <ns3/lte-ccm-mac-sap.h>
-#include <ns3/lte-ue-cmac-sap.h>
 #include <ns3/traced-callback.h>
 
 #include <unordered_map>
@@ -128,19 +126,19 @@ class NrUeMac : public Object
      * \brief Set the C MAC SAP user (AKA the RRC representation for the MAC)
      * \param s the SAP pointer
      */
-    void SetUeCmacSapUser(LteUeCmacSapUser* s);
+    void SetUeCmacSapUser(NrUeCmacSapUser* s);
 
     /**
      * \brief Get the C MAC SAP provider (AKA the MAC representation for the RRC)
      * \return  C MAC SAP provider (AKA the MAC representation for the RRC)
      */
-    LteUeCmacSapProvider* GetUeCmacSapProvider();
+    NrUeCmacSapProvider* GetUeCmacSapProvider();
 
     /**
      * \brief Get the Mac SAP provider (AKA the MAC representation for the RLC)
      * \return the Mac SAP provider (AKA the MAC representation for the RLC)
      */
-    LteMacSapProvider* GetUeMacSapProvider();
+    NrMacSapProvider* GetUeMacSapProvider();
 
     /**
      * \brief Get the PHY SAP User (AKA the MAC representation for the PHY)
@@ -228,7 +226,7 @@ class NrUeMac : public Object
      * \brief Received a RA response
      * \param raResponse the response
      */
-    void RecvRaResponse(BuildRarListElement_s raResponse);
+    void RecvRaResponse(NrBuildRarListElement_s raResponse);
     /**
      * \brief Set the RNTI
      */
@@ -261,7 +259,7 @@ class NrUeMac : public Object
      * they will be grouped (to imitate subPdus) by PHY into a PacketBurst that
      * represents a PDU.
      */
-    void DoTransmitPdu(LteMacSapProvider::TransmitPduParameters params);
+    void DoTransmitPdu(NrMacSapProvider::TransmitPduParameters params);
 
     /**
      * \brief Called by CCM
@@ -273,22 +271,21 @@ class NrUeMac : public Object
      *
      * \see DoSlotIndication
      */
-    void DoReportBufferStatus(LteMacSapProvider::ReportBufferStatusParameters params);
+    void DoReportBufferStatus(NrMacSapProvider::ReportBufferStatusParameters params);
 
     // forwarded from PHY SAP
     void DoReceivePhyPdu(Ptr<Packet> p);
     void DoReceiveControlMessage(Ptr<NrControlMessage> msg);
     // void DoNotifyHarqDeliveryFailure (uint8_t harqId);
+    void RaResponseTimeout(bool contention);
 
     // forwarded from UE CMAC SAP
-    void DoConfigureRach(LteUeCmacSapProvider::RachConfig rc);
+    void DoConfigureRach(NrUeCmacSapProvider::RachConfig rc);
     void DoStartContentionBasedRandomAccessProcedure();
     void DoStartNonContentionBasedRandomAccessProcedure(uint16_t rnti,
                                                         uint8_t rapId,
                                                         uint8_t prachMask);
-    void AddLc(uint8_t lcId,
-               LteUeCmacSapProvider::LogicalChannelConfig lcConfig,
-               LteMacSapUser* msu);
+    void AddLc(uint8_t lcId, NrUeCmacSapProvider::LogicalChannelConfig lcConfig, NrMacSapUser* msu);
     void DoRemoveLc(uint8_t lcId);
     void DoReset();
     void DoNotifyConnectionSuccessful();
@@ -377,11 +374,11 @@ class NrUeMac : public Object
     void SendTxData(uint32_t usefulTbs, uint32_t activeTx);
 
   private:
-    LteUeCmacSapUser* m_cmacSapUser{nullptr};
-    LteUeCmacSapProvider* m_cmacSapProvider{nullptr};
+    NrUeCmacSapUser* m_cmacSapUser{nullptr};
+    NrUeCmacSapProvider* m_cmacSapProvider{nullptr};
     NrPhySapProvider* m_phySapProvider{nullptr};
     NrUePhySapUser* m_phySapUser{nullptr};
-    LteMacSapProvider* m_macSapProvider{nullptr};
+    NrMacSapProvider* m_macSapProvider{nullptr};
 
     SfnSf m_currentSlot;          //!< The current slot
     uint8_t m_numHarqProcess{20}; //!< number of HARQ processes
@@ -391,7 +388,7 @@ class NrUeMac : public Object
     SfnSf m_ulDciSfnsf;           //!< Received a DCI for transmitting data in this slot.
     uint32_t m_ulDciTotalUsed{0}; //!< Received a DCI, put the total count of bytes we sent.
 
-    std::unordered_map<uint8_t, LteMacSapProvider::ReportBufferStatusParameters>
+    std::unordered_map<uint8_t, NrMacSapProvider::ReportBufferStatusParameters>
         m_ulBsrReceived; //!< BSR received from RLC (the last one)
 
     /**
@@ -442,8 +439,8 @@ class NrUeMac : public Object
 
     struct LcInfo
     {
-        LteUeCmacSapProvider::LogicalChannelConfig lcConfig;
-        LteMacSapUser* macSapUser;
+        NrUeCmacSapProvider::LogicalChannelConfig lcConfig;
+        NrMacSapUser* macSapUser;
     };
 
     std::unordered_map<uint8_t, LcInfo> m_lcInfoMap;
@@ -467,6 +464,19 @@ class NrUeMac : public Object
      */
     TracedCallback<SfnSf, uint16_t, uint16_t, uint8_t, Ptr<const NrControlMessage>>
         m_macTxedCtrlMsgsTrace;
+
+    /**
+     * \brief The `RaResponseTimeout` trace source. Fired RA response timeout.
+     * Exporting IMSI, contention flag, preamble transmission counter
+     * and the max limit of preamble transmission.
+     */
+    TracedCallback<uint64_t, bool, uint8_t, uint8_t> m_raResponseTimeoutTrace;
+
+    void StartWaitingForRaResponse();
+    bool m_rachConfigured = false;                ///< is RACH configured?
+    NrUeCmacSapProvider::RachConfig m_rachConfig; ///< RACH configuration
+    uint8_t m_preambleTransmissionCounter{0};     ///< preamble transmission counter
+    EventId m_noRaResponseReceivedEvent;          ///< no RA response received event ID
 };
 
 } // namespace ns3

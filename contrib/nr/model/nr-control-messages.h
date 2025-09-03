@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -8,9 +6,8 @@
 #define SRC_NR_MODEL_NR_CONTROL_MESSAGES_H_
 
 #include "nr-phy-mac-common.h"
+#include "nr-rrc-sap.h"
 
-#include <ns3/ff-mac-common.h>
-#include <ns3/lte-rrc-sap.h>
 #include <ns3/simple-ref-count.h>
 
 namespace ns3
@@ -274,7 +271,7 @@ class NrDlCqiMessage : public NrControlMessage
  * \ingroup utils
  * \brief the BSR message
  *
- * The uplink BsrLteControlMessage defines the specific
+ * The uplink BsrNrControlMessage defines the specific
  * extension of the CE element for reporting the buffer status report
  */
 class NrBsrMessage : public NrControlMessage
@@ -325,16 +322,16 @@ class NrMibMessage : public NrControlMessage
      * \brief Replace the MIB content of this control message.
      * \param mib the desired MIB content
      */
-    void SetMib(LteRrcSap::MasterInformationBlock mib);
+    void SetMib(NrRrcSap::MasterInformationBlock mib);
 
     /**
      * \brief Retrieve the MIB content from this control message.
      * \return the current MIB content that this control message holds
      */
-    LteRrcSap::MasterInformationBlock GetMib() const;
+    NrRrcSap::MasterInformationBlock GetMib() const;
 
   private:
-    LteRrcSap::MasterInformationBlock m_mib; //!< The MIB
+    NrRrcSap::MasterInformationBlock m_mib; //!< The MIB
 };
 
 // ---------------------------------------------------------------------------
@@ -357,16 +354,16 @@ class NrSib1Message : public NrControlMessage
      * \brief Replace the SIB1 content of this control message.
      * \param sib1 the desired SIB1 content
      */
-    void SetSib1(LteRrcSap::SystemInformationBlockType1 sib1);
+    void SetSib1(NrRrcSap::SystemInformationBlockType1 sib1);
 
     /**
      * \brief Retrieve the SIB1 content from this control message.
      * \return the current SIB1 content that this control message holds
      */
-    LteRrcSap::SystemInformationBlockType1 GetSib1() const;
+    NrRrcSap::SystemInformationBlockType1 GetSib1() const;
 
   private:
-    LteRrcSap::SystemInformationBlockType1 m_sib1; //!< Sib1 content
+    NrRrcSap::SystemInformationBlockType1 m_sib1; //!< Sib1 content
 };
 
 // ---------------------------------------------------------------------------
@@ -444,8 +441,8 @@ class NrRarMessage : public NrControlMessage
      */
     struct Rar
     {
-        uint8_t rapId;                    //!< RA ID
-        BuildRarListElement_s rarPayload; //!< RA Payload
+        uint8_t rapId;                      //!< RA ID
+        NrBuildRarListElement_s rarPayload; //!< RA Payload
     };
 
     /**

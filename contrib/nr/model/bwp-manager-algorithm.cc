@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2018 Natale Patriciello <natale.patriciello@gmail.com>
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -239,9 +237,9 @@ BwpManagerAlgorithmStatic::GetTypeId()
 }
 
 uint8_t
-BwpManagerAlgorithmStatic::GetBwpForEpsBearer(const EpsBearer::Qci& v) const
+BwpManagerAlgorithmStatic::GetBwpForEpsBearer(const NrEpsBearer::Qci& v) const
 {
-    return m_qciToBwpMap.at(v);
+    return m_qciToBwpMap.at(v == 0 ? 1 : v);
 }
 
 } // namespace ns3

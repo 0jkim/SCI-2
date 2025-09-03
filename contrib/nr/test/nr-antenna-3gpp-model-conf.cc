@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2018 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -140,7 +138,7 @@ TestAntenna3gppModelConf::DoRun()
     DataRate udpRate = DataRate("2Mbps");
 
     Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
-    Config::SetDefault("ns3::EpsBearer::Release", UintegerValue(15));
+    Config::SetDefault("ns3::NrEpsBearer::Release", UintegerValue(15));
 
     // create base stations and mobile terminals
     NodeContainer gNbNodes;
@@ -197,7 +195,7 @@ TestAntenna3gppModelConf::DoRun()
     mobility.SetPositionAllocator(uePositionAlloc);
     mobility.Install(ueNodes);
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
 
@@ -244,7 +242,7 @@ TestAntenna3gppModelConf::DoRun()
 
     nrHelper->SetGnbPhyAttribute("Numerology", UintegerValue(3.0));
 
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     /*
      * Spectrum division. We create two operational bands, each of them containing
@@ -317,7 +315,7 @@ TestAntenna3gppModelConf::DoRun()
 
     // create the internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -341,18 +339,18 @@ TestAntenna3gppModelConf::DoRun()
     remoteHostStaticRouting->AddNetworkRouteTo(Ipv4Address("7.0.0.0"), Ipv4Mask("255.0.0.0"), 1);
     internet.Install(ueNodes);
     Ipv4InterfaceContainer ueIpIface;
-    ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDevs));
+    ueIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDevs));
 
     // Set the default gateway for the UEs
     for (uint32_t j = 0; j < ueNodes.GetN(); ++j)
     {
         Ptr<Ipv4StaticRouting> ueStaticRouting =
             ipv4RoutingHelper.GetStaticRouting(ueNodes.Get(j)->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
     }
 
-    // attach UEs to the closest eNB
-    nrHelper->AttachToClosestEnb(ueNetDevs, gNbDevs);
+    // attach UEs to the closest gNB
+    nrHelper->AttachToClosestGnb(ueNetDevs, gNbDevs);
 
     // assign IP address to UEs, and install UDP downlink applications
     uint16_t dlPort = 1234;
@@ -371,13 +369,13 @@ TestAntenna3gppModelConf::DoRun()
     dlClient.SetAttribute("MaxPackets", UintegerValue(0xFFFFFFFF));
     clientAppsDl.Add(dlClient.Install(remoteHost));
 
-    Ptr<EpcTft> tft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpf;
+    Ptr<NrEpcTft> tft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpf;
     dlpf.localPortStart = dlPort;
     dlpf.localPortEnd = dlPort;
     tft->Add(dlpf);
 
-    EpsBearer bearer(EpsBearer::NGBR_LOW_LAT_EMBB);
+    NrEpsBearer bearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
     nrHelper->ActivateDedicatedEpsBearer(ueNetDevs.Get(0), bearer, tft);
 
     // start UDP server and client apps

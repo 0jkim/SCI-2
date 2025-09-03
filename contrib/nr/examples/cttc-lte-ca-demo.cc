@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -51,7 +49,7 @@ $ ./ns3 run "cttc-lte-ca-demo --PrintHelp"
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE("3gppChannelFdmLteComponentCarriersExample");
+NS_LOG_COMPONENT_DEFINE("3gppChannelFdmNrComponentCarriersExample");
 
 int
 main(int argc, char* argv[])
@@ -149,7 +147,7 @@ main(int argc, char* argv[])
                  "Number of UDP packets in one second for ultra low latency traffic",
                  lambdaUll);
     cmd.AddValue("lambdaBe",
-                 "Number of UDP packets in one second for best effor traffic",
+                 "Number of UDP packets in one second for best effort traffic",
                  lambdaBe);
     cmd.AddValue("enableLowLat",
                  "If true, enables low latency traffic transmission (DL)",
@@ -181,7 +179,7 @@ main(int argc, char* argv[])
         //      LogComponentEnable ("Nr3gppChannel", LOG_LEVEL_ALL);
         //      LogComponentEnable ("UdpClient", LOG_LEVEL_INFO);
         //      LogComponentEnable ("UdpServer", LOG_LEVEL_INFO);
-        //      LogComponentEnable ("LtePdcp", LOG_LEVEL_INFO);
+        //      LogComponentEnable ("NrPdcp", LOG_LEVEL_INFO);
         //      LogComponentEnable ("BwpManagerGnb", LOG_LEVEL_INFO);
         //      LogComponentEnable ("BwpManagerAlgorithm", LOG_LEVEL_INFO);
         LogComponentEnable("NrGnbPhy", LOG_LEVEL_INFO);
@@ -250,15 +248,15 @@ main(int argc, char* argv[])
     mobility.SetPositionAllocator(staPositionAlloc);
     mobility.Install(ueNodes);
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
 
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     nrHelper->SetPathlossAttribute("ShadowingEnabled", BooleanValue(false));
-    epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    nrEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
     if (cellScan)
     {
         idealBeamformingHelper->SetAttribute("BeamformingMethod",
@@ -272,7 +270,7 @@ main(int argc, char* argv[])
             "BeamformingMethod",
             TypeIdValue(QuasiOmniDirectPathBeamforming::GetTypeId()));
     }
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
 
     std::string errorModel = "ns3::NrLteMiErrorModel";
     // Scheduler
@@ -432,6 +430,7 @@ main(int argc, char* argv[])
         bwpul->m_centralFrequency = bwpul->m_lowerFrequency + bwpul->m_channelBandwidth / 2;
 
         cc2->AddBwp(std::move(bwpul));
+        Config::SetDefault("ns3::NrUeNetDevice::PrimaryUlIndex", UintegerValue(1));
     }
 
     band38.AddCc(std::move(cc1));
@@ -476,11 +475,11 @@ main(int argc, char* argv[])
                                                 UintegerValue(bwpIdForVideoGaming));
 
     // install nr net devices
-    NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice(gNbNodes, allBwps);
+    NetDeviceContainer gnbNetDev = nrHelper->InstallGnbDevice(gNbNodes, allBwps);
     NetDeviceContainer ueNetDev = nrHelper->InstallUeDevice(ueNodes, allBwps);
 
     int64_t randomStream = 1;
-    randomStream += nrHelper->AssignStreams(enbNetDev, randomStream);
+    randomStream += nrHelper->AssignStreams(gnbNetDev, randomStream);
     randomStream += nrHelper->AssignStreams(ueNetDev, randomStream);
 
     // Share the total transmission power among CCs proportionally with the BW
@@ -488,58 +487,58 @@ main(int argc, char* argv[])
     double totalBandwidth = numCcs * bandwidth;
 
     // Band40: CC0 - BWP0 & Band38: CC1 - BWP1
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)
         ->SetAttribute("Numerology", UintegerValue(numerologyBwp0));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)
         ->SetAttribute(
             "TxPower",
             DoubleValue(10 *
                         log10((band40.GetBwpAt(0, 0)->m_channelBandwidth / totalBandwidth) * x)));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)->SetAttribute("Pattern", StringValue(pattern));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)->SetAttribute("RbOverhead", DoubleValue(0.1));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)->SetAttribute("Pattern", StringValue(pattern));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)->SetAttribute("RbOverhead", DoubleValue(0.1));
 
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 1)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 1)
         ->SetAttribute("Numerology", UintegerValue(numerologyBwp1));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 1)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 1)
         ->SetAttribute(
             "TxPower",
             DoubleValue(10 *
                         log10((band38.GetBwpAt(0, 0)->m_channelBandwidth / totalBandwidth) * x)));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 1)->SetAttribute("Pattern", StringValue(pattern));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 1)->SetAttribute("RbOverhead", DoubleValue(0.1));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 1)->SetAttribute("Pattern", StringValue(pattern));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 1)->SetAttribute("RbOverhead", DoubleValue(0.1));
 
     // Band38: CC2 - BWP2
     if (operationMode == "TDD")
     {
-        nrHelper->GetGnbPhy(enbNetDev.Get(0), 2)
+        nrHelper->GetGnbPhy(gnbNetDev.Get(0), 2)
             ->SetAttribute("Numerology", UintegerValue(numerologyBwp2));
-        nrHelper->GetGnbPhy(enbNetDev.Get(0), 2)
+        nrHelper->GetGnbPhy(gnbNetDev.Get(0), 2)
             ->SetAttribute(
                 "TxPower",
                 DoubleValue(
                     10 * log10((band38.GetBwpAt(1, 0)->m_channelBandwidth / totalBandwidth) * x)));
-        nrHelper->GetGnbPhy(enbNetDev.Get(0), 2)->SetAttribute("Pattern", StringValue(pattern));
-        nrHelper->GetGnbPhy(enbNetDev.Get(0), 2)->SetAttribute("RbOverhead", DoubleValue(0.1));
+        nrHelper->GetGnbPhy(gnbNetDev.Get(0), 2)->SetAttribute("Pattern", StringValue(pattern));
+        nrHelper->GetGnbPhy(gnbNetDev.Get(0), 2)->SetAttribute("RbOverhead", DoubleValue(0.1));
     }
     else // FDD case
     {
-        nrHelper->GetGnbPhy(enbNetDev.Get(0), 2)
+        nrHelper->GetGnbPhy(gnbNetDev.Get(0), 2)
             ->SetAttribute("Numerology", UintegerValue(numerologyBwpDl));
-        nrHelper->GetGnbPhy(enbNetDev.Get(0), 2)
+        nrHelper->GetGnbPhy(gnbNetDev.Get(0), 2)
             ->SetAttribute(
                 "TxPower",
                 DoubleValue(
                     10 * log10((band38.GetBwpAt(1, 0)->m_channelBandwidth / totalBandwidth) * x)));
-        nrHelper->GetGnbPhy(enbNetDev.Get(0), 2)->SetAttribute("Pattern", StringValue(patternDL));
-        nrHelper->GetGnbPhy(enbNetDev.Get(0), 2)->SetAttribute("RbOverhead", DoubleValue(0.1));
+        nrHelper->GetGnbPhy(gnbNetDev.Get(0), 2)->SetAttribute("Pattern", StringValue(patternDL));
+        nrHelper->GetGnbPhy(gnbNetDev.Get(0), 2)->SetAttribute("RbOverhead", DoubleValue(0.1));
 
-        nrHelper->GetGnbPhy(enbNetDev.Get(0), 3)
+        nrHelper->GetGnbPhy(gnbNetDev.Get(0), 3)
             ->SetAttribute("Numerology", UintegerValue(numerologyBwpUl));
-        nrHelper->GetGnbPhy(enbNetDev.Get(0), 3)->SetAttribute("Pattern", StringValue(patternUL));
-        nrHelper->GetGnbPhy(enbNetDev.Get(0), 3)->SetAttribute("RbOverhead", DoubleValue(0.1));
+        nrHelper->GetGnbPhy(gnbNetDev.Get(0), 3)->SetAttribute("Pattern", StringValue(patternUL));
+        nrHelper->GetGnbPhy(gnbNetDev.Get(0), 3)->SetAttribute("RbOverhead", DoubleValue(0.1));
 
         // Link the two FDD BWP:
-        nrHelper->GetBwpManagerGnb(enbNetDev.Get(0))->SetOutputLink(3, 2);
+        nrHelper->GetBwpManagerGnb(gnbNetDev.Get(0))->SetOutputLink(3, 2);
 
         // Set the UE routing:
         for (uint32_t i = 0; i < ueNetDev.GetN(); i++)
@@ -552,7 +551,7 @@ main(int argc, char* argv[])
     }
 
     // When all the configuration is done, explicitly call UpdateConfig ()
-    for (auto it = enbNetDev.Begin(); it != enbNetDev.End(); ++it)
+    for (auto it = gnbNetDev.Begin(); it != gnbNetDev.End(); ++it)
     {
         DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
     }
@@ -564,7 +563,7 @@ main(int argc, char* argv[])
 
     // create the internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -586,18 +585,18 @@ main(int argc, char* argv[])
     remoteHostStaticRouting->AddNetworkRouteTo(Ipv4Address("7.0.0.0"), Ipv4Mask("255.0.0.0"), 1);
     internet.Install(ueNodes);
     Ipv4InterfaceContainer ueIpIface;
-    ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
+    ueIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
 
     // Set the default gateway for the UEs
     for (uint32_t j = 0; j < ueNodes.GetN(); ++j)
     {
         Ptr<Ipv4StaticRouting> ueStaticRouting =
             ipv4RoutingHelper.GetStaticRouting(ueNodes.Get(j)->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
     }
 
-    // attach UEs to the closest eNB
-    nrHelper->AttachToClosestEnb(ueNetDev, enbNetDev);
+    // attach UEs to the closest gNB
+    nrHelper->AttachToClosestGnb(ueNetDev, gnbNetDev);
 
     // install UDP applications
     uint16_t dlPortLowLat = 1234;
@@ -633,11 +632,11 @@ main(int argc, char* argv[])
     dlClientLowLat.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambdaBe)));
 
     // The bearer that will carry low latency traffic
-    EpsBearer lowLatBearer(EpsBearer::NGBR_LOW_LAT_EMBB);
+    NrEpsBearer lowLatBearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
 
     // The filter for the low-latency traffic
-    Ptr<EpcTft> lowLatTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpfLowLat;
+    Ptr<NrEpcTft> lowLatTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpfLowLat;
     dlpfLowLat.localPortStart = dlPortLowLat;
     dlpfLowLat.localPortEnd = dlPortLowLat;
     lowLatTft->Add(dlpfLowLat);
@@ -650,14 +649,14 @@ main(int argc, char* argv[])
     ulClientVoice.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambdaBe)));
 
     // The bearer that will carry voice traffic
-    EpsBearer voiceBearer(EpsBearer::GBR_CONV_VOICE);
+    NrEpsBearer voiceBearer(NrEpsBearer::GBR_CONV_VOICE);
 
     // The filter for the voice traffic
-    Ptr<EpcTft> voiceTft = Create<EpcTft>();
-    EpcTft::PacketFilter ulpfVoice;
+    Ptr<NrEpcTft> voiceTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter ulpfVoice;
     ulpfVoice.localPortStart = ulPortVoice;
     ulpfVoice.localPortEnd = ulPortVoice;
-    ulpfVoice.direction = EpcTft::UPLINK;
+    ulpfVoice.direction = NrEpcTft::UPLINK;
     voiceTft->Add(ulpfVoice);
 
     // Video configuration and object creation:
@@ -668,11 +667,11 @@ main(int argc, char* argv[])
     dlClientVideo.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambdaUll)));
 
     // The bearer that will carry video traffic
-    EpsBearer videoBearer(EpsBearer::NGBR_VIDEO_TCP_PREMIUM);
+    NrEpsBearer videoBearer(NrEpsBearer::NGBR_VIDEO_TCP_PREMIUM);
 
     // The filter for the video traffic
-    Ptr<EpcTft> videoTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpfVideo;
+    Ptr<NrEpcTft> videoTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpfVideo;
     dlpfVideo.localPortStart = dlPortVideo;
     dlpfVideo.localPortEnd = dlPortVideo;
     videoTft->Add(dlpfVideo);
@@ -685,14 +684,14 @@ main(int argc, char* argv[])
     ulClientGaming.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambdaUll)));
 
     // The bearer that will carry gaming traffic
-    EpsBearer gamingBearer(EpsBearer::NGBR_VOICE_VIDEO_GAMING);
+    NrEpsBearer gamingBearer(NrEpsBearer::NGBR_VOICE_VIDEO_GAMING);
 
     // The filter for the gaming traffic
-    Ptr<EpcTft> gamingTft = Create<EpcTft>();
-    EpcTft::PacketFilter ulpfGaming;
+    Ptr<NrEpcTft> gamingTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter ulpfGaming;
     ulpfGaming.remotePortStart = ulPortGaming;
     ulpfGaming.remotePortEnd = ulPortGaming;
-    ulpfGaming.direction = EpcTft::UPLINK;
+    ulpfGaming.direction = NrEpcTft::UPLINK;
     gamingTft->Add(ulpfGaming);
 
     //  Install the applications
@@ -766,7 +765,7 @@ main(int argc, char* argv[])
     Simulator::Run();
 
     /*
-     * To check what was installed in the memory, i.e., BWPs of eNb Device, and its configuration.
+     * To check what was installed in the memory, i.e., BWPs of gNB Device, and its configuration.
      * Example is: Node 1 -> Device 0 -> BandwidthPartMap -> {0,1} BWPs -> NrGnbPhy ->
     NrPhyMacCommong-> Numerology, Bandwidth, ... GtkConfigStore config; config.ConfigureAttributes
     ();

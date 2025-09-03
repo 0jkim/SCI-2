@@ -15,6 +15,138 @@ http://www.nsnam.org including tutorials: https://www.nsnam.org/documentation/
 Consult the file CHANGES.md for more detailed information about changed
 API and behavior across releases.
 
+
+Release NR-v3.3
+----------------
+
+Availability
+------------
+Available since October 15, 2024
+
+Cite this version
+-----------------
+DOI: 10.5281/zenodo.13929095
+
+Supported platforms
+-------------------
+This release has been tested on the following platforms:
+- Arch Linux with g++-14 and clang-18 (with GNU stdlibc++ and LLVM libc++).
+- Ubuntu 20.04 with g++10.
+- Ubuntu 22.04 with g++11 and 12 and clang-11 and 14.
+- Ubuntu 23.04 with g++13.
+- Ubuntu 23.10 (Mantic Minotaur) with clang-16.
+
+This release is compatible with ns-3.42.
+
+Important news
+--------------
+- This release includes Fronthaul Control mechanisms, that allow
+  to simulate a limited-capacity fronthaul (FH) link based on the
+  Fronthaul Capacity (m_fhCapacity) set by the user in the example
+  script, and to apply FH Control methods (m_fhControlMethod) in order
+  to restrict user allocations, if these they do not fit in the
+  available FH capacity. O-RAN 7.2x functional split is assumed.
+  The methods supported are the Dropping, Postponing, Optimize MCS
+  and Optimize RBs, however it can be easily extended to apply
+  additional methods. The Fronthaul Control takes decisions based
+  on the model applied, the available fronthaul capacity, the applied
+  modulation compression and the number of active UEs in each cell
+  (either with new or HARQ data). This last information is updated
+  after each scheduling process is finalized, through the MAC layer.
+  The interaction of the Fronthaul Control with the MAC and high-PHY
+  layers takes place through a set of SAP interfaces that allow the
+  bidirectional exchange of information.
+
+- Remember to follow the instructions from the README.md file, i.e., to checkout
+  the correct release branch of both ns-3 and the NR module. The information about
+  compatibility with the corresponding ns-3 release branch is stated in the
+  `README.md` file.
+
+New user-visible features
+-------------------------
+- Fronthaul Control mechanisms are available in the NR module.
+  The ``cttc-nr-fh-xr`` example shows how to use and configure the
+  Fronthaul Control in a scenario employing XR, CG and VoIP traffic.
+  For a more detailed description see the NR manual and Doxygen.
+
+Bugs fixed
+----------
+- (2b84532c) Set the correct UL output file name for the ``NrMacSchedulingStats``.
+
+Known issues
+------------
+In general, known issues are tracked on the project tracker available
+at https://gitlab.com/cttc-lena/nr/-/issues
+
+
+Release NR-v3.2
+---------------
+
+Availability
+------------
+Available since September 25, 2024
+
+Cite this version
+-----------------
+DOI: 10.5281/zenodo.13837253
+
+Supported platforms
+-------------------
+This release has been tested on the following platforms:
+
+- Arch Linux with g++-14 and clang-18 (with GNU stdlibc++ and LLVM libc++).
+- Ubuntu 20.04 with g++10.
+- Ubuntu 22.04 with g++11 and 12 and clang-11 and 14.
+- Ubuntu 23.04 with g++13.
+- Ubuntu 23.10 (Mantic Minotaur) with clang-16.
+
+This release will be compatible with ns-3.42.
+
+Important news
+--------------
+
+- NR is now independent from the upstream LTE module from ns-3.
+  To simplify the porting process, we migrated most source files from LTE, including RLC, RRC, PDCP, EPC.
+  However, keep in mind we are not adding supported features at this time.
+  We hope to enable more features in future releases.
+
+- We introduced three new CI jobs with additional tests.
+  The first CI job checks for now deprecated emacs lines.
+  The second job checks if the nr works normally without eigen (which is required by MIMO).
+  The third job tests nr with LLVM's libc++. This helps to detect defects
+  caused by relying on implementation specific behavior of different C++ standard libraries.
+
+- The ``NrHelper::EnableHarq`` attribute was removed for being misleading and causing bugs.
+  If you want to avoid retransmissions, use ``NrMacSchedulerNs3::EnableHarqReTx`` instead.
+
+- Remember to follow the instructions from the README.md file, i.e., to checkout
+  the correct release branch of both ns-3 and the NR module. The information about
+  compatibility with the corresponding ns-3 release branch is stated in the
+  `README.md` file.
+
+New user-visible features
+-------------------------
+
+Bugs fixed
+----------
+
+- (5b5f2d27) Fix Codebook type configuration using the NrHelper::SetupMimoPmi()
+- (e1272b43) Print missing CQI field and remove extra tabulation
+- (3617c735) Do not account for CRC when estimating potential throughput
+- (3f93030d) Remove duplicate multiplication of RBGs and symbols per beam
+- (c2ea8533) Remove misleading HarqEnabled flag from NrHelper and add test case
+- (3618a80a) Sort control message lists before merging
+- (a68f143c) Update type of rbNum to prohibit overflow and wrong SINR trace
+- (738b08bc) Prevent out-of-bounds access when rntiIt == m_rlcAttached.end()
+- (ed645749) Prevent negative values of effective SINR
+- (63c863ce) examples: Disable cttc-nr-mimo-demo when eigen is not found
+
+Known issues
+------------
+In general, known issues are tracked on the project tracker available
+at https://gitlab.com/cttc-lena/nr/-/issues
+
+
 Release NR-v3.1
 ----------------
 
@@ -64,7 +196,7 @@ New user-visible features
 - A new MIMO Type-I Single Panel codebook is available in the NR module.
   The ``NrCbTypeOneSp`` codebook allows the MIMO model introduced in
   nr-3.0 to support up to 32 antenna ports and up to rank 4. See the
-  ``cttc-nr-mimo-demo.cc`` file for an example on how to configure 
+  ``cttc-nr-mimo-demo.cc`` file for an example on how to configure
   the new codebook. More details are available at the nr-manual and Doxygen.
 
 - Sub-band downsampling/upsampling techniques were implemented, allowing
@@ -72,7 +204,7 @@ New user-visible features
 
 Bugs fixed
 ----------
-- (edd72f85) Fixed the number of rows when creating a dummy precoding matrix 
+- (edd72f85) Fixed the number of rows when creating a dummy precoding matrix
 - (2c98da82) Abort when size of packet isn't supported by UDP
 - (d827c1df) Detect overflow in active tx count
 - (a9c6af8b) Assigned random streams to fix traffic-generator-test

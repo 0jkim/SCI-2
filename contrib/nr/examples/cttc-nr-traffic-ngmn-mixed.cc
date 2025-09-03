@@ -47,8 +47,8 @@ $ ./ns3 run "cttc-nr-traffic-ngmn-mixed --PrintHelp"
 #include "ns3/nr-module.h"
 #include "ns3/point-to-point-module.h"
 #include <ns3/antenna-module.h>
+#include <ns3/nr-radio-environment-map-helper.h>
 #include <ns3/ping-helper.h>
-#include <ns3/radio-environment-map-helper.h>
 #include <ns3/rng-seed-manager.h>
 #include <ns3/three-gpp-ftp-m1-helper.h>
 #include <ns3/three-gpp-http-client.h>
@@ -160,7 +160,7 @@ Set5gLenaSimulatorParameters(HexagonalGridScenarioHelper gridScenario,
                              NodeContainer ueSector1Container,
                              NodeContainer ueSector2Container,
                              NodeContainer ueSector3Container,
-                             Ptr<PointToPointEpcHelper>& baseEpcHelper,
+                             Ptr<NrPointToPointEpcHelper>& baseNrEpcHelper,
                              Ptr<NrHelper>& nrHelper,
                              NetDeviceContainer& gnbSector1NetDev,
                              NetDeviceContainer& gnbSector2NetDev,
@@ -190,8 +190,9 @@ Set5gLenaSimulatorParameters(HexagonalGridScenarioHelper gridScenario,
     // Put the pointers inside nrHelper
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = DynamicCast<NrPointToPointEpcHelper>(baseEpcHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper =
+        DynamicCast<NrPointToPointEpcHelper>(baseNrEpcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     /*
      * Spectrum division. We create one operational band containing three
@@ -284,6 +285,7 @@ Set5gLenaSimulatorParameters(HexagonalGridScenarioHelper gridScenario,
     if (operationMode == "FDD")
     {
         numBwpPerCc = 2; // FDD will have 2 BWPs per CC
+        Config::SetDefault("ns3::NrUeNetDevice::PrimaryUlIndex", UintegerValue(1));
     }
 
     CcBwpCreator::SimpleOperationBandConf bandConf1(centralFrequencyBand1,
@@ -367,7 +369,7 @@ Set5gLenaSimulatorParameters(HexagonalGridScenarioHelper gridScenario,
         nrHelper->SetSchedulerAttribute("DlCtrlSymbols", UintegerValue(1));
     }
     // Core latency
-    epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    nrEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
 
     // Antennas for all the UEs
     nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(1));
@@ -415,7 +417,7 @@ Set5gLenaSimulatorParameters(HexagonalGridScenarioHelper gridScenario,
      * to the NetDevices, which contains all the NR stack:
      */
 
-    //  NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice (gridScenario.GetBaseStations (),
+    //  NetDeviceContainer gnbNetDev = nrHelper->InstallGnbDevice (gridScenario.GetBaseStations (),
     //  allBwps);
     gnbSector1NetDev = nrHelper->InstallGnbDevice(gnbSector1Container, bwps1);
     gnbSector2NetDev = nrHelper->InstallGnbDevice(gnbSector2Container, bwps2);
@@ -934,7 +936,7 @@ main(int argc, char* argv[])
     /*
      * Setup the 5G-LENA scenario
      */
-    Ptr<PointToPointEpcHelper> epcHelper;
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper;
 
     NetDeviceContainer gnbSector1NetDev;
     NetDeviceContainer gnbSector2NetDev;
@@ -945,7 +947,7 @@ main(int argc, char* argv[])
 
     Ptr<NrHelper> nrHelper = nullptr;
 
-    epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Set5gLenaSimulatorParameters(gridScenario,
                                  scenario,
                                  radioNetwork,
@@ -957,7 +959,7 @@ main(int argc, char* argv[])
                                  ueSector1Container,
                                  ueSector2Container,
                                  ueSector3Container,
-                                 epcHelper,
+                                 nrEpcHelper,
                                  nrHelper,
                                  gnbSector1NetDev,
                                  gnbSector2NetDev,
@@ -972,7 +974,7 @@ main(int argc, char* argv[])
 
     // create the internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -1058,11 +1060,11 @@ main(int argc, char* argv[])
     }
 
     Ipv4InterfaceContainer ueSector1IpIface =
-        epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueSector1NetDev));
+        nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueSector1NetDev));
     Ipv4InterfaceContainer ueSector2IpIface =
-        epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueSector2NetDev));
+        nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueSector2NetDev));
     Ipv4InterfaceContainer ueSector3IpIface =
-        epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueSector3NetDev));
+        nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueSector3NetDev));
 
     Ipv4Address remoteHostAddr = internetIpIfaces.GetAddress(1);
 
@@ -1071,7 +1073,7 @@ main(int argc, char* argv[])
     {
         Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting(
             gridScenario.GetUserTerminals().Get(j)->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
     }
 
     // attach UEs to their gNB. Try to attach them per cellId order
@@ -1084,7 +1086,7 @@ main(int argc, char* argv[])
             Ptr<NetDevice> gnbNetDev = gnbSector1NetDev.Get(i % gridScenario.GetNumSites());
             Ptr<NetDevice> ueNetDev = ueSector1NetDev.Get(i);
 
-            nrHelper->AttachToEnb(ueNetDev, gnbNetDev);
+            nrHelper->AttachToGnb(ueNetDev, gnbNetDev);
 
             if (logging)
             {
@@ -1098,7 +1100,7 @@ main(int argc, char* argv[])
         {
             Ptr<NetDevice> gnbNetDev = gnbSector2NetDev.Get(i % gridScenario.GetNumSites());
             Ptr<NetDevice> ueNetDev = ueSector2NetDev.Get(i);
-            nrHelper->AttachToEnb(ueNetDev, gnbNetDev);
+            nrHelper->AttachToGnb(ueNetDev, gnbNetDev);
             if (logging)
             {
                 Vector gnbpos = gnbNetDev->GetNode()->GetObject<MobilityModel>()->GetPosition();
@@ -1111,7 +1113,7 @@ main(int argc, char* argv[])
         {
             Ptr<NetDevice> gnbNetDev = gnbSector3NetDev.Get(i % gridScenario.GetNumSites());
             Ptr<NetDevice> ueNetDev = ueSector3NetDev.Get(i);
-            nrHelper->AttachToEnb(ueNetDev, gnbNetDev);
+            nrHelper->AttachToGnb(ueNetDev, gnbNetDev);
             if (logging)
             {
                 Vector gnbpos = gnbNetDev->GetNode()->GetObject<MobilityModel>()->GetPosition();
@@ -1161,22 +1163,22 @@ main(int argc, char* argv[])
     // dlClientLowLat.SetAttribute ("Interval", TimeValue (Seconds (1.0/lambda)));
 
     // The bearer that will carry low latency traffic
-    EpsBearer lowLatBearer(EpsBearer::NGBR_VIDEO_TCP_DEFAULT);
+    NrEpsBearer lowLatBearer(NrEpsBearer::NGBR_VIDEO_TCP_DEFAULT);
 
     // The filter for the low-latency traffic
-    Ptr<EpcTft> lowLatTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpfLowLat;
+    Ptr<NrEpcTft> lowLatTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpfLowLat;
     if (direction == "DL")
     {
         dlpfLowLat.localPortStart = dlPortLowLat;
         dlpfLowLat.localPortEnd = dlPortLowLat;
-        dlpfLowLat.direction = EpcTft::DOWNLINK;
+        dlpfLowLat.direction = NrEpcTft::DOWNLINK;
     }
     else
     {
         dlpfLowLat.remotePortStart = dlPortLowLat;
         dlpfLowLat.remotePortEnd = dlPortLowLat;
-        dlpfLowLat.direction = EpcTft::UPLINK;
+        dlpfLowLat.direction = NrEpcTft::UPLINK;
     }
     lowLatTft->Add(dlpfLowLat);
 
@@ -2008,7 +2010,7 @@ main(int argc, char* argv[])
         }
         // outFile << "  Rx Packets: " << i->second.rxPackets << "\n";
     }
-    std::sort(delayValues.begin(), delayValues.end());
+    std::stable_sort(delayValues.begin(), delayValues.end());
     // for (uint32_t i = 0; i < stats.size(); i++)
     //   {
     //     std::cout << delayValues[i] << " ";

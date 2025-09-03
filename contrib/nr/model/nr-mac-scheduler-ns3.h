@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -7,6 +5,7 @@
 #pragma once
 
 #include "nr-amc.h"
+#include "nr-fh-sched-sap.h"
 #include "nr-mac-harq-vector.h"
 #include "nr-mac-scheduler-cqi-management.h"
 #include "nr-mac-scheduler-lcg.h"
@@ -25,6 +24,8 @@ class NrSchedGeneralTestCase;
 class NrMacSchedulerHarqRr;
 class NrMacSchedulerSrsDefault;
 class NrMacSchedulerLcAlgorithm;
+class NrFhSchedSapUser;
+class NrFhSchedSapProvider;
 
 /**
  * \ingroup scheduler
@@ -210,20 +211,25 @@ class NrMacSchedulerLcAlgorithm;
  * Please refer to the method documentation for more detailed information
  * about the scheduling process of new data.
  *
- * An interesting operation which is not enforced in the current scheduler
- * version is how to distribute the assigned bytes to the different LC of
- * a UE. Now it is implemented the RR assignment, but it can be modified
- * (method AssignBytesToLC()).
+ * The scheduler distributes the assigned bytes among the different LCs of
+ * a UE based on the chosen algorithm for LC bytes assignment. Currently two
+ * algorithms are implemented. The default algorithm that assigns bytes to
+ * LCs in RR fashion and an algorithm that shares bytes among the active LCs
+ * by taking into account the resource type and the e_rabGuaranteedBitRate of
+ * a flow. These two algorithm implementations can be found in the
+ * NrMacSchedulerLcRR and NrMacSchedulerLcQos classes.
  *
  * The available schedulers are TDMA and OFDMA version of the Round Robin,
- * Proportional Fair, and Maximum Rate.
+ * Proportional Fair, Maximum Rate, and QoS MAC scheduler.
  *
  * \see NrMacSchedulerOfdmaPF
  * \see NrMacSchedulerOfdmaRR
  * \see NrMacSchedulerOfdmaMR
+ * \see NrMacSchedulerOfdmaQos
  * \see NrMacSchedulerTdmaPF
  * \see NrMacSchedulerTdmaRR
  * \see NrMacSchedulerTdmaMR
+ * \see NrMacSchedulerTdmaQos
  */
 class NrMacSchedulerNs3 : public NrMacScheduler
 {
@@ -249,6 +255,10 @@ class NrMacSchedulerNs3 : public NrMacScheduler
      * \brief NrMacSchedulerNs3 deconstructor
      */
     ~NrMacSchedulerNs3() override;
+
+    // FH Control SAPs
+    void SetNrFhSchedSapProvider(NrFhSchedSapProvider* s) override;
+    NrFhSchedSapUser* GetNrFhSchedSapUser() override;
 
     /**
      * \brief Install the AMC for the DL part
@@ -334,6 +344,7 @@ class NrMacSchedulerNs3 : public NrMacScheduler
         const NrMacSchedSapProvider::SchedDlRachInfoReqParameters& params) override;
     uint8_t GetDlCtrlSyms() const override;
     uint8_t GetUlCtrlSyms() const override;
+
     /**
      * \brief Assign a fixed random variable stream number to the random variables
      * used by this model. Return the number of streams (possibly zero) that
@@ -533,6 +544,13 @@ class NrMacSchedulerNs3 : public NrMacScheduler
      */
     bool IsHarqReTxEnable() const;
 
+    /**
+     * \brief Sets the default RACH UL
+     * grant MCS
+     * \param v the MCS to be used for RACH UL grant
+     */
+    void SetRachUlGrantMcs(uint8_t v);
+
   protected:
     /**
      * \brief Create an UE representation for the scheduler.
@@ -684,10 +702,11 @@ class NrMacSchedulerNs3 : public NrMacScheduler
      */
     virtual void SortUlHarq(ActiveHarqMap* activeUlHarq) const;
 
-    virtual LCGPtr CreateLCG(const LogicalChannelConfigListElement_s& config) const;
+    virtual LCGPtr CreateLCG(const nr::LogicalChannelConfigListElement_s& config) const;
 
-    virtual LCPtr CreateLC(const LogicalChannelConfigListElement_s& config) const;
+    virtual LCPtr CreateLC(const nr::LogicalChannelConfigListElement_s& config) const;
 
+  public:
     /**
      * \brief Private function that is used to get the number of resource
      * blocks per resource block group and also to check whether this value is
@@ -823,6 +842,7 @@ class NrMacSchedulerNs3 : public NrMacScheduler
                              uint32_t symAvail,
                              const ActiveUeMap& activeUl,
                              SlotAllocInfo* slotAlloc) const;
+    uint8_t DoScheduleUlMsg3(PointInFTPlane* sPoint, uint8_t symAvail, SlotAllocInfo* slotAlloc);
     void DoScheduleUlSr(PointInFTPlane* spoint, const std::list<uint16_t>& rntiList) const;
     uint8_t DoScheduleDl(const std::vector<DlHarqInfo>& dlHarqFeedback,
                          const ActiveHarqMap& activeDlHarq,
@@ -858,7 +878,27 @@ class NrMacSchedulerNs3 : public NrMacScheduler
      */
     uint16_t GetBandwidthInRbg() const;
 
+    /**
+     * \brief Get the FH Control Method.
+     * \return the FH Control Method (uint8_t)
+     */
+    uint8_t GetFhControlMethod() const;
+
+    /**
+     * \brief Returns a boolean indicating whether the current allocation can
+     *        fit in the available FH bandwidth (when FH Control is enabled).
+     */
+    bool DoesFhAllocationFit(uint16_t bwpId, uint32_t mcs, uint32_t nRegs, uint8_t dlRank) const;
+
+    // FFR SAPs
+    NrFhSchedSapUser* m_nrFhSchedSapUser{nullptr};         //!< FH Control SAP user
+    NrFhSchedSapProvider* m_nrFhSchedSapProvider{nullptr}; //!< FH Control SAP provider
+
   private:
+    void CallNrFhControlForMapUpdate(
+        const std::deque<VarTtiAllocInfo>& allocation,
+        const std::unordered_map<uint16_t, std::shared_ptr<NrMacSchedulerUeInfo>>& ueMap);
+
     std::unordered_map<uint16_t, std::shared_ptr<NrMacSchedulerUeInfo>>
         m_ueMap; //!< The map of between RNTI and their data
 
@@ -875,6 +915,10 @@ class NrMacSchedulerNs3 : public NrMacScheduler
     int8_t m_maxDlMcs{0};      //!< Maximum index for DL MCS
     Time m_cqiTimersThreshold; //!< The time while a CQI is valid
 
+    uint8_t m_rachUlGrantMcs{0}; //!< The MCS that will be used for UL RACH grant
+    uint8_t m_ulRachBwpIndex{
+        0}; //!< The BWP index for UL RACH, i.e., RRC connection request message
+
     NrMacSchedulerCQIManagement m_cqiManagement; //!< CQI Management
 
     std::vector<DlHarqInfo>
@@ -884,7 +928,7 @@ class NrMacSchedulerNs3 : public NrMacScheduler
 
     std::list<uint16_t> m_srList; //!< List of RNTI of UEs that asked for a SR
 
-    std::vector<struct RachListElement_s> m_rachList; //!< rach list
+    std::vector<struct nr::RachListElement_s> m_rachList; //!< rach list
 
     uint16_t m_bandwidth{0};         //!< Bandwidth in number of RBG
     uint8_t m_dlCtrlSymbols{0};      //!< DL ctrl symbols (attribute)

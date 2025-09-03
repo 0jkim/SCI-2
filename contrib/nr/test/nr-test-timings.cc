@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -7,10 +5,10 @@
 #include "ns3/antenna-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/core-module.h"
-#include "ns3/eps-bearer-tag.h"
 #include "ns3/internet-module.h"
 #include "ns3/mobility-module.h"
 #include "ns3/network-module.h"
+#include "ns3/nr-eps-bearer-tag.h"
 #include "ns3/nr-module.h"
 #include "ns3/point-to-point-helper.h"
 
@@ -123,7 +121,7 @@ SendPacket(const Ptr<NetDevice>& device, const Address& addr)
     NS_ASSERT(packetSize > header.GetSerializedSize());
     Ptr<Packet> pkt = Create<Packet>(packetSize - header.GetSerializedSize());
     header.SetProtocol(0x06);
-    EpsBearerTag tag(1, 1);
+    NrEpsBearerTag tag(1, 1);
     pkt->AddPacketTag(tag);
     pkt->AddHeader(header);
     device->Send(pkt, addr, Ipv4L3Protocol::PROT_NUMBER);
@@ -572,7 +570,7 @@ NrTimingsTest::UePhyRx(SfnSf sfn,
         {
             4,
             {
-                {NrControlMessage::RAR, SfnSf(1, 6, 5, 4).Normalize()},
+                {NrControlMessage::RAR, SfnSf(1, 6, 4, 4).Normalize()},
                 {NrControlMessage::DL_DCI, SfnSf(40, 0, 2, 4).Normalize()},
                 //{ NrControlMessage::DCI, SfnSf (80, 0, 2, 4).Normalize () },
             },
@@ -580,7 +578,7 @@ NrTimingsTest::UePhyRx(SfnSf sfn,
         {
             3,
             {
-                {NrControlMessage::RAR, SfnSf(1, 6, 5, 3).Normalize()},
+                {NrControlMessage::RAR, SfnSf(1, 6, 4, 3).Normalize()},
                 {NrControlMessage::DL_DCI, SfnSf(40, 0, 2, 3).Normalize()},
                 //{ NrControlMessage::DCI, SfnSf (80, 0, 2, 3).Normalize () },
             },
@@ -588,7 +586,7 @@ NrTimingsTest::UePhyRx(SfnSf sfn,
         {
             2,
             {
-                {NrControlMessage::RAR, SfnSf(1, 7, 1, 2).Normalize()},
+                {NrControlMessage::RAR, SfnSf(1, 7, 0, 2).Normalize()},
                 {NrControlMessage::DL_DCI, SfnSf(40, 0, 2, 2).Normalize()},
                 //{ NrControlMessage::DCI, SfnSf (80, 0, 2, 2).Normalize () },
             },
@@ -596,7 +594,7 @@ NrTimingsTest::UePhyRx(SfnSf sfn,
         {
             1,
             {
-                {NrControlMessage::RAR, SfnSf(1, 8, 1, 1).Normalize()},
+                {NrControlMessage::RAR, SfnSf(1, 8, 0, 1).Normalize()},
                 {NrControlMessage::DL_DCI, SfnSf(40, 1, 0, 1).Normalize()},
                 //{ NrControlMessage::DCI, SfnSf (80, 0, 2, 1).Normalize () },
             },
@@ -604,7 +602,7 @@ NrTimingsTest::UePhyRx(SfnSf sfn,
         {
             0,
             {
-                {NrControlMessage::RAR, SfnSf(2, 1, 0, 0).Normalize()},
+                {NrControlMessage::RAR, SfnSf(2, 0, 0, 0).Normalize()},
                 {NrControlMessage::DL_DCI, SfnSf(40, 2, 0, 0).Normalize()},
                 //{ NrControlMessage::DCI, SfnSf (80, 0, 2, 0).Normalize () },
             },
@@ -736,7 +734,7 @@ NrTimingsTest::UeMacRx(SfnSf sfn,
         {
             4,
             {
-                {NrControlMessage::RAR, SfnSf(1, 6, 5, 4).Normalize()},
+                {NrControlMessage::RAR, SfnSf(1, 6, 4, 4).Normalize()},
                 {NrControlMessage::DL_DCI, SfnSf(40, 0, 2, 4).Normalize()},
                 //{ NrControlMessage::DCI, SfnSf (80, 0, 2, 4).Normalize () },
             },
@@ -744,7 +742,7 @@ NrTimingsTest::UeMacRx(SfnSf sfn,
         {
             3,
             {
-                {NrControlMessage::RAR, SfnSf(1, 6, 5, 3).Normalize()},
+                {NrControlMessage::RAR, SfnSf(1, 6, 4, 3).Normalize()},
                 {NrControlMessage::DL_DCI, SfnSf(40, 0, 2, 3).Normalize()},
                 //{ NrControlMessage::DCI, SfnSf (80, 0, 2, 3).Normalize () },
             },
@@ -752,7 +750,7 @@ NrTimingsTest::UeMacRx(SfnSf sfn,
         {
             2,
             {
-                {NrControlMessage::RAR, SfnSf(1, 7, 1, 2).Normalize()},
+                {NrControlMessage::RAR, SfnSf(1, 7, 0, 2).Normalize()},
                 {NrControlMessage::DL_DCI, SfnSf(40, 0, 2, 2).Normalize()},
                 //{ NrControlMessage::DCI, SfnSf (80, 0, 2, 2).Normalize () },
             },
@@ -760,14 +758,14 @@ NrTimingsTest::UeMacRx(SfnSf sfn,
         {
             1,
             {
-                {NrControlMessage::RAR, SfnSf(1, 8, 1, 1).Normalize()},
+                {NrControlMessage::RAR, SfnSf(1, 8, 0, 1).Normalize()},
                 {NrControlMessage::DL_DCI, SfnSf(40, 1, 0, 1).Normalize()},
                 //{ NrControlMessage::DCI, SfnSf (80, 0, 2, 1).Normalize () },
             },
         },
         {0,
          {
-             {NrControlMessage::RAR, SfnSf(2, 1, 0, 0).Normalize()},
+             {NrControlMessage::RAR, SfnSf(2, 0, 0, 0).Normalize()},
              {NrControlMessage::DL_DCI, SfnSf(40, 2, 0, 0).Normalize()},
              //{ NrControlMessage::DCI, SfnSf (80, 0, 2, 0).Normalize () },
          }},
@@ -808,8 +806,8 @@ NrTimingsTest::UeMacRx(SfnSf sfn,
 // Ugly pre-processor macro, to speed up writing. The best way would be to use
 // static functions... so please forget them, and remember that they work
 // only here in the DoRun function, as it is all hard-coded
-#define GET_ENB_PHY(X, Y) nrHelper->GetGnbPhy(enbNetDev.Get(X), Y)
-#define GET_ENB_MAC(X, Y) nrHelper->GetGnbMac(enbNetDev.Get(X), Y)
+#define GET_GNB_PHY(X, Y) nrHelper->GetGnbPhy(gnbNetDev.Get(X), Y)
+#define GET_GNB_MAC(X, Y) nrHelper->GetGnbMac(gnbNetDev.Get(X), Y)
 
 #define GET_UE_PHY(X, Y) nrHelper->GetUePhy(ueNetDev.Get(X), Y)
 #define GET_UE_MAC(X, Y) nrHelper->GetUeMac(ueNetDev.Get(X), Y)
@@ -830,13 +828,13 @@ NrTimingsTest::DoRun()
     RngSeedManager::SetSeed(1);
     RngSeedManager::SetRun(1);
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
 
     // Put the pointers inside nrHelper
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     BandwidthPartInfoPtrVector allBwps;
     CcBwpCreator ccBwpCreator;
@@ -861,7 +859,7 @@ NrTimingsTest::DoRun()
                                          TypeIdValue(DirectPathBeamforming::GetTypeId()));
 
     // Core latency
-    epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    nrEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
 
     // Antennas for all the UEs
     nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(2));
@@ -883,21 +881,21 @@ NrTimingsTest::DoRun()
 
     nrHelper->SetUePhyAttribute("TxPower", DoubleValue(50.0));
 
-    NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice(gNbNode, allBwps);
+    NetDeviceContainer gnbNetDev = nrHelper->InstallGnbDevice(gNbNode, allBwps);
     NetDeviceContainer ueNetDev = nrHelper->InstallUeDevice(ueNode, allBwps);
 
     int64_t randomStream = 1;
-    randomStream += nrHelper->AssignStreams(enbNetDev, randomStream);
+    randomStream += nrHelper->AssignStreams(gnbNetDev, randomStream);
     randomStream += nrHelper->AssignStreams(ueNetDev, randomStream);
 
-    GET_ENB_PHY(0, 0)->TraceConnectWithoutContext("GnbPhyTxedCtrlMsgsTrace",
+    GET_GNB_PHY(0, 0)->TraceConnectWithoutContext("GnbPhyTxedCtrlMsgsTrace",
                                                   MakeCallback(&NrTimingsTest::GnbPhyTx, this));
-    GET_ENB_PHY(0, 0)->TraceConnectWithoutContext("GnbPhyRxedCtrlMsgsTrace",
+    GET_GNB_PHY(0, 0)->TraceConnectWithoutContext("GnbPhyRxedCtrlMsgsTrace",
                                                   MakeCallback(&NrTimingsTest::GnbPhyRx, this));
 
-    GET_ENB_MAC(0, 0)->TraceConnectWithoutContext("GnbMacTxedCtrlMsgsTrace",
+    GET_GNB_MAC(0, 0)->TraceConnectWithoutContext("GnbMacTxedCtrlMsgsTrace",
                                                   MakeCallback(&NrTimingsTest::GnbMacTx, this));
-    GET_ENB_MAC(0, 0)->TraceConnectWithoutContext("GnbMacRxedCtrlMsgsTrace",
+    GET_GNB_MAC(0, 0)->TraceConnectWithoutContext("GnbMacRxedCtrlMsgsTrace",
                                                   MakeCallback(&NrTimingsTest::GnbMacRx, this));
 
     GET_UE_PHY(0, 0)->TraceConnectWithoutContext("UePhyTxedCtrlMsgsTrace",
@@ -912,7 +910,7 @@ NrTimingsTest::DoRun()
 
     // When all the configuration is done, explicitly call UpdateConfig ()
 
-    for (auto it = enbNetDev.Begin(); it != enbNetDev.End(); ++it)
+    for (auto it = gnbNetDev.Begin(); it != gnbNetDev.End(); ++it)
     {
         DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
     }
@@ -925,19 +923,19 @@ NrTimingsTest::DoRun()
     InternetStackHelper internet;
     internet.Install(ueNode);
     Ipv4InterfaceContainer ueIpIface;
-    ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
+    ueIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
 
-    nrHelper->AttachToClosestEnb(ueNetDev, enbNetDev);
+    nrHelper->AttachToClosestGnb(ueNetDev, gnbNetDev);
 
     // DL at 0.4
     Simulator::Schedule(MilliSeconds(400),
                         &SendPacket,
-                        enbNetDev.Get(0),
+                        gnbNetDev.Get(0),
                         ueNetDev.Get(0)->GetAddress());
 
     // UL at 0.8
     // Simulator::Schedule (MilliSeconds (800), &SendPacket, ueNetDev.Get(0),
-    // enbNetDev.Get(0)->GetAddress ());
+    // gnbNetDev.Get(0)->GetAddress ());
 
     Simulator::Stop(MilliSeconds(1200));
 

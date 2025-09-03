@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2020 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -154,7 +152,7 @@ LenaV2Utils::SetLenaV2SimulatorParameters(const double sector0AngleRad,
                                           const NodeContainer& ueSector1Container,
                                           const NodeContainer& ueSector2Container,
                                           const NodeContainer& ueSector3Container,
-                                          const Ptr<PointToPointEpcHelper>& baseEpcHelper,
+                                          const Ptr<NrPointToPointEpcHelper>& baseEpcHelper,
                                           Ptr<NrHelper>& nrHelper,
                                           NetDeviceContainer& gnbSector1NetDev,
                                           NetDeviceContainer& gnbSector2NetDev,
@@ -280,8 +278,8 @@ LenaV2Utils::SetLenaV2SimulatorParameters(const double sector0AngleRad,
         nrHelper->SetBeamformingHelper(beamformingHelper);
     }
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = DynamicCast<NrPointToPointEpcHelper>(baseEpcHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = DynamicCast<NrPointToPointEpcHelper>(baseEpcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     double txPowerBs = 0.0;
 
@@ -505,6 +503,7 @@ LenaV2Utils::SetLenaV2SimulatorParameters(const double sector0AngleRad,
             NS_LOG_LOGIC("band0[0][1]: " << bandCenter << " " << bandwidthBwp);
             ConfigureBwpTo(band0.m_cc[0]->m_bwp[1], bandCenter, bandwidthBwp);
             bandCenter += bandwidthBwp;
+            Config::SetDefault("ns3::NrUeNetDevice::PrimaryUlIndex", UintegerValue(1));
         }
 
         NS_LOG_LOGIC("band1[0][0]: " << bandCenter << " " << bandwidthBwp);
@@ -699,7 +698,7 @@ LenaV2Utils::SetLenaV2SimulatorParameters(const double sector0AngleRad,
     nrHelper->SetSchedulerAttribute("DlCtrlSymbols", UintegerValue(dlCtrlSymbols));
 
     // Core latency
-    epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    nrEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
 
     // Antennas for all the UEs
     nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(ueNumRows));
@@ -791,7 +790,7 @@ LenaV2Utils::SetLenaV2SimulatorParameters(const double sector0AngleRad,
     // Ue routing between Bearer and bandwidth part
     nrHelper->SetUeBwpManagerAlgorithmAttribute("NGBR_LOW_LAT_EMBB", UintegerValue(bwpIdForLowLat));
 
-    //  NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice (gridScenario.GetBaseStations (),
+    //  NetDeviceContainer gnbNetDev = nrHelper->InstallGnbDevice (gridScenario.GetBaseStations (),
     //  allBwps);
     gnbSector1NetDev = nrHelper->InstallGnbDevice(gnbSector1Container, sector1Bwps);
     NetDeviceContainer gnbNetDevs(gnbSector1NetDev);

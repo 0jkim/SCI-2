@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2011 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 // Copyright (c) 2015 NYU WIRELESS, Tandon School of Engineering, New York University
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
@@ -16,6 +14,7 @@
 
 #include "beam-manager.h"
 #include "nr-ch-access-manager.h"
+#include "nr-radio-bearer-tag.h"
 #include "nr-ue-net-device.h"
 #include "nr-ue-power-control.h"
 
@@ -23,7 +22,6 @@
 #include <ns3/double.h>
 #include <ns3/enum.h>
 #include <ns3/log.h>
-#include <ns3/lte-radio-bearer-tag.h>
 #include <ns3/node.h>
 #include <ns3/pointer.h>
 #include <ns3/simulator.h>
@@ -44,9 +42,9 @@ NrUePhy::NrUePhy()
 {
     NS_LOG_FUNCTION(this);
     m_wbCqiLast = Simulator::Now();
-    m_ueCphySapProvider = new MemberLteUeCphySapProvider<NrUePhy>(this);
+    m_ueCphySapProvider = new MemberNrUeCphySapProvider<NrUePhy>(this);
     m_powerControl = CreateObject<NrUePowerControl>(this);
-
+    m_isConnected = false;
     Simulator::Schedule(m_ueMeasurementsFilterPeriod, &NrUePhy::ReportUeMeasurements, this);
 }
 
@@ -190,7 +188,16 @@ NrUePhy::GetTypeId()
             .AddTraceSource("ReportPowerSpectralDensity",
                             "Power Spectral Density data.",
                             MakeTraceSourceAccessor(&NrUePhy::m_reportPowerSpectralDensity),
-                            "ns3::NrUePhy::PowerSpectralDensityTracedCallback");
+                            "ns3::NrUePhy::PowerSpectralDensityTracedCallback")
+            .AddTraceSource("ReportUeMeasurements",
+                            "Report UE measurements RSRP (dBm) and RSRQ (dB).",
+                            MakeTraceSourceAccessor(&NrUePhy::m_reportUeMeasurements),
+                            "ns3::NrUePhy::RsrpRsrqTracedCallback")
+            .AddAttribute("EnableRlfDetection",
+                          "If true, RLF detection will be enabled.",
+                          BooleanValue(true),
+                          MakeBooleanAccessor(&NrUePhy::m_enableRlfDetection),
+                          MakeBooleanChecker());
     return tid;
 }
 
@@ -210,13 +217,13 @@ NrUePhy::ChannelAccessDenied()
 }
 
 void
-NrUePhy::SetUeCphySapUser(LteUeCphySapUser* s)
+NrUePhy::SetUeCphySapUser(NrUeCphySapUser* s)
 {
     NS_LOG_FUNCTION(this);
     m_ueCphySapUser = s;
 }
 
-LteUeCphySapProvider*
+NrUeCphySapProvider*
 NrUePhy::GetUeCphySapProvider()
 {
     NS_LOG_FUNCTION(this);
@@ -325,8 +332,18 @@ NrUePhy::ProcessDataDci(const SfnSf& ulSfnSf,
 }
 
 void
-NrUePhy::ProcessSrsDci([[maybe_unused]] const SfnSf& ulSfnSf,
-                       [[maybe_unused]] const std::shared_ptr<DciInfoElementTdma>& dciInfoElem)
+NrUePhy::SendRachPreamble(uint32_t PreambleId, uint32_t Rnti)
+{
+    NS_LOG_FUNCTION(this << PreambleId);
+    m_raPreambleId = PreambleId;
+    Ptr<NrRachPreambleMessage> msg = Create<NrRachPreambleMessage>();
+    msg->SetSourceBwp(GetBwpId());
+    msg->SetRapId(PreambleId);
+    EnqueueCtrlMsgNow(msg);
+}
+
+void
+NrUePhy::ProcessSrsDci(const SfnSf& ulSfnSf, const std::shared_ptr<DciInfoElementTdma>& dciInfoElem)
 {
     NS_LOG_FUNCTION(this);
     // Instruct PHY for transmitting the SRS
@@ -341,7 +358,7 @@ NrUePhy::ProcessSrsDci([[maybe_unused]] const SfnSf& ulSfnSf,
 }
 
 void
-NrUePhy::RegisterToEnb(uint16_t bwpId)
+NrUePhy::RegisterToGnb(uint16_t bwpId)
 {
     NS_LOG_FUNCTION(this);
 
@@ -409,7 +426,7 @@ NrUePhy::ComputeAvgSinr(const SpectrumValue& sinr)
 {
     // averaged SINR among RBs
     double sum = 0.0;
-    uint8_t rbNum = 0;
+    uint16_t rbNum = 0;
     Values::const_iterator it;
 
     for (it = sinr.ConstValuesBegin(); it != sinr.ConstValuesEnd(); it++)
@@ -430,8 +447,8 @@ NrUePhy::InsertAllocation(const std::shared_ptr<DciInfoElementTdma>& dci)
 
     VarTtiAllocInfo varTtiInfo(dci);
     m_currSlotAllocInfo.m_varTtiAllocInfo.push_back(varTtiInfo);
-    std::sort(m_currSlotAllocInfo.m_varTtiAllocInfo.begin(),
-              m_currSlotAllocInfo.m_varTtiAllocInfo.end());
+    std::stable_sort(m_currSlotAllocInfo.m_varTtiAllocInfo.begin(),
+                     m_currSlotAllocInfo.m_varTtiAllocInfo.end());
 }
 
 void
@@ -444,7 +461,7 @@ NrUePhy::InsertFutureAllocation(const SfnSf& sfnSf, const std::shared_ptr<DciInf
     {
         auto& ulSlot = PeekSlotAllocInfo(sfnSf);
         ulSlot.m_varTtiAllocInfo.push_back(varTtiInfo);
-        std::sort(ulSlot.m_varTtiAllocInfo.begin(), ulSlot.m_varTtiAllocInfo.end());
+        std::stable_sort(ulSlot.m_varTtiAllocInfo.begin(), ulSlot.m_varTtiAllocInfo.end());
     }
     else
     {
@@ -552,16 +569,55 @@ NrUePhy::PhyCtrlMessagesReceived(const Ptr<NrControlMessage>& msg)
     {
         Ptr<NrRarMessage> rarMsg = DynamicCast<NrRarMessage>(msg);
 
-        Simulator::Schedule((GetSlotPeriod() * (GetL1L2CtrlLatency() / 2)),
-                            &NrUePhy::DoReceiveRar,
-                            this,
-                            rarMsg);
+        ProcessRar(rarMsg);
     }
     else
     {
         NS_LOG_INFO("Message type not recognized " << msg->GetMessageType());
         m_phyRxedCtrlMsgsTrace(m_currentSlot, GetCellId(), m_rnti, GetBwpId(), msg);
         m_phySapUser->ReceiveControlMessage(msg);
+    }
+}
+
+void
+NrUePhy::ProcessRar(const Ptr<NrRarMessage>& rarMsg)
+{
+    NS_LOG_FUNCTION(this);
+    bool myRar = false;
+    {
+        for (auto it = rarMsg->RarListBegin(); it != rarMsg->RarListEnd(); ++it)
+        {
+            NS_LOG_INFO("Received RAR in slot" << m_currentSlot << " with RA preamble ID: "
+                                               << std::to_string(it->rarPayload.raPreambleId));
+            if (it->rarPayload.raPreambleId == m_raPreambleId)
+            {
+                NS_LOG_INFO("Received RAR with RA preamble ID:" << +it->rarPayload.raPreambleId
+                                                                << " current RA preamble ID is :"
+                                                                << m_raPreambleId);
+                // insert allocation
+                SfnSf ulSfnSf = m_currentSlot;
+                uint32_t k2Delay = it->rarPayload.k2Delay;
+                ulSfnSf.Add(k2Delay);
+                NS_LOG_DEBUG("Insert RAR UL DCI allocation for " << ulSfnSf);
+                ProcessDataDci(ulSfnSf, (*it).rarPayload.ulMsg3Dci);
+                myRar = true;
+                // notify MAC and above about transmission opportunity
+                m_phySapUser->ReceiveControlMessage(rarMsg);
+                // fire CTRL msg trace
+                m_phyRxedCtrlMsgsTrace(m_currentSlot, GetCellId(), m_rnti, GetBwpId(), rarMsg);
+                // reset RACH variables with out of range values
+                m_raPreambleId = 255;
+            }
+        }
+        if (!myRar)
+        {
+            NS_LOG_DEBUG("Skipping RAR, does not contain preamble ID."
+                         << "\n My preamble id: " << std::to_string(m_raPreambleId) << " found:");
+            for (auto it = rarMsg->RarListBegin(); it != rarMsg->RarListEnd(); ++it)
+            {
+                NS_LOG_DEBUG("rapId: " << std::to_string(it->rapId));
+            }
+        }
     }
 }
 
@@ -599,7 +655,8 @@ NrUePhy::TryToPerformLbt()
             int64_t dciEndsAt = m_lastSlotStart.GetMicroSeconds() +
                                 ((alloc.m_dci->m_numSym + alloc.m_dci->m_symStart) * symbolPeriod);
 
-            if (alloc.m_dci->m_type != DciInfoElementTdma::DATA)
+            if (alloc.m_dci->m_type != DciInfoElementTdma::DATA &&
+                alloc.m_dci->m_type != DciInfoElementTdma::MSG3)
             {
                 continue;
             }
@@ -650,23 +707,6 @@ NrUePhy::RequestAccess()
     NS_LOG_DEBUG("Request access because we have to transmit UL CTRL");
     m_cam->RequestAccess(); // This will put the m_channelStatus to granted when
                             // the channel will be granted.
-}
-
-void
-NrUePhy::DoReceiveRar(Ptr<NrRarMessage> rarMsg)
-{
-    NS_LOG_FUNCTION(this);
-
-    NS_LOG_INFO("Received RAR in slot " << m_currentSlot);
-    m_phyRxedCtrlMsgsTrace(m_currentSlot, GetCellId(), m_rnti, GetBwpId(), rarMsg);
-
-    for (auto it = rarMsg->RarListBegin(); it != rarMsg->RarListEnd(); ++it)
-    {
-        if (it->rapId == m_raPreambleId)
-        {
-            m_phySapUser->ReceiveControlMessage(rarMsg);
-        }
-    }
 }
 
 void
@@ -780,6 +820,13 @@ NrUePhy::StartSlot(const SfnSf& s)
             break;
         case DciInfoElementTdma::VarTtiType::CTRL:
             type = "CTRL";
+            NS_LOG_DEBUG("Allocation from sym "
+                         << static_cast<uint32_t>(alloc.m_dci->m_symStart) << " to sym "
+                         << static_cast<uint32_t>(alloc.m_dci->m_numSym + alloc.m_dci->m_symStart)
+                         << " direction " << direction << " type " << type);
+            break;
+        case DciInfoElementTdma::VarTtiType::MSG3:
+            type = "MSG3";
             NS_LOG_DEBUG("Allocation from sym "
                          << static_cast<uint32_t>(alloc.m_dci->m_symStart) << " to sym "
                          << static_cast<uint32_t>(alloc.m_dci->m_numSym + alloc.m_dci->m_symStart)
@@ -975,7 +1022,7 @@ NrUePhy::UlData(const std::shared_ptr<DciInfoElementTdma>& dci)
     if (pktBurst && pktBurst->GetNPackets() > 0)
     {
         std::list<Ptr<Packet>> pkts = pktBurst->GetPackets();
-        LteRadioBearerTag bearerTag;
+        NrRadioBearerTag bearerTag;
         if (!pkts.front()->PeekPacketTag(bearerTag))
         {
             NS_FATAL_ERROR("No radio bearer tag");
@@ -985,7 +1032,15 @@ NrUePhy::UlData(const std::shared_ptr<DciInfoElementTdma>& dci)
     {
         // put an error, as something is wrong. The UE should not be scheduled
         // if there is no data for him...
-        NS_FATAL_ERROR("The UE " << dci->m_rnti << " has been scheduled without data");
+        if (dci->m_type != DciInfoElementTdma::MSG3)
+        {
+            NS_FATAL_ERROR("The UE " << dci->m_rnti << " has been scheduled without data");
+        }
+        else
+        {
+            NS_LOG_WARN("Not sending MSG3. Probably in RRC IDEAL mode.");
+            return varTtiDuration;
+        }
     }
     m_reportUlTbSize(m_netDevice->GetObject<NrUeNetDevice>()->GetImsi(), dci->m_tbSize);
 
@@ -1029,7 +1084,8 @@ NrUePhy::StartVarTti(const std::shared_ptr<DciInfoElementTdma>& dci)
     {
         varTtiDuration = DlData(dci);
     }
-    else if (dci->m_type == DciInfoElementTdma::DATA && dci->m_format == DciInfoElementTdma::UL)
+    else if ((dci->m_type == DciInfoElementTdma::DATA || dci->m_type == DciInfoElementTdma::MSG3) &&
+             dci->m_format == DciInfoElementTdma::UL)
     {
         varTtiDuration = UlData(dci);
     }
@@ -1096,7 +1152,7 @@ NrUePhy::SendDataChannels(const Ptr<PacketBurst>& pb,
 {
     if (pb->GetNPackets() > 0)
     {
-        LteRadioBearerTag tag;
+        NrRadioBearerTag tag;
         if (!pb->GetPackets().front()->PeekPacketTag(tag))
         {
             NS_FATAL_ERROR("No radio bearer tag");
@@ -1163,7 +1219,7 @@ NrUePhy::EnqueueDlHarqFeedback(const DlHarqInfo& m)
 
     auto k1It = m_harqIdToK1Map.find(m.m_harqProcessId);
 
-    NS_LOG_DEBUG("ReceiveLteDlHarqFeedback"
+    NS_LOG_DEBUG("ReceiveNrDlHarqFeedback"
                  << " Harq Process " << static_cast<uint32_t>(k1It->first)
                  << " K1: " << k1It->second << " Frame " << m_currentSlot);
 
@@ -1205,6 +1261,8 @@ void
 NrUePhy::DoReset()
 {
     NS_LOG_FUNCTION(this);
+    m_raPreambleId = 255; // value out of range
+    m_isConnected = false;
 }
 
 void
@@ -1215,10 +1273,10 @@ NrUePhy::DoStartCellSearch(uint16_t dlEarfcn)
 }
 
 void
-NrUePhy::DoSynchronizeWithEnb(uint16_t cellId, uint16_t dlEarfcn)
+NrUePhy::DoSynchronizeWithGnb(uint16_t cellId, uint16_t dlEarfcn)
 {
     NS_LOG_FUNCTION(this << cellId << dlEarfcn);
-    DoSynchronizeWithEnb(cellId);
+    DoSynchronizeWithGnb(cellId);
 }
 
 void
@@ -1234,7 +1292,7 @@ NrUePhy::DoSetRsrpFilterCoefficient(uint8_t rsrpFilterCoefficient)
 }
 
 void
-NrUePhy::DoSynchronizeWithEnb(uint16_t cellId)
+NrUePhy::DoSynchronizeWithGnb(uint16_t cellId)
 {
     NS_LOG_FUNCTION(this << cellId);
     DoSetCellId(cellId);
@@ -1337,13 +1395,13 @@ NrUePhy::ReportUeMeasurements()
 {
     NS_LOG_FUNCTION(this);
 
-    // LteUeCphySapUser::UeMeasurementsParameters ret;
+    NrUeCphySapUser::UeMeasurementsParameters ret;
 
     std::map<uint16_t, UeMeasurementsElement>::iterator it;
     for (it = m_ueMeasurementsMap.begin(); it != m_ueMeasurementsMap.end(); it++)
     {
         double avg_rsrp;
-        // double avg_rsrq = 0;
+        double avg_rsrq = 0;
         if ((*it).second.rsrpNum != 0)
         {
             avg_rsrp = (*it).second.rsrpSum / static_cast<double>((*it).second.rsrpNum);
@@ -1361,16 +1419,31 @@ NrUePhy::ReportUeMeasurements()
 
         m_reportRsrpTrace(GetCellId(), m_imsi, m_rnti, avg_rsrp, GetBwpId());
 
-        /*LteUeCphySapUser::UeMeasurementsElement newEl;
+        // trigger RLF detection only when UE has an active RRC connection
+        // and RLF detection attribute is set to true
+        if (m_isConnected && m_enableRlfDetection)
+        {
+            double avrgSinrForRlf = ComputeAvgSinr(m_ctrlSinrForRlf);
+            RlfDetection(10 * log10(avrgSinrForRlf));
+        }
+
+        NrUeCphySapUser::UeMeasurementsElement newEl;
         newEl.m_cellId = (*it).first;
         newEl.m_rsrp = avg_rsrp;
-        newEl.m_rsrq = avg_rsrq;  //LEAVE IT 0 FOR THE MOMENT
-        ret.m_ueMeasurementsList.push_back (newEl);
-        ret.m_componentCarrierId = GetBwpId ();*/
+        newEl.m_rsrq = avg_rsrq; // LEAVE IT 0 FOR THE MOMENT
+        ret.m_ueMeasurementsList.push_back(newEl);
+        ret.m_componentCarrierId = GetBwpId();
+
+        m_reportUeMeasurements(m_rnti,
+                               (*it).first,
+                               avg_rsrp,
+                               avg_rsrq,
+                               (*it).first == GetCellId(),
+                               ret.m_componentCarrierId);
     }
 
     // report to RRC
-    // m_ueCphySapUser->ReportUeMeasurements (ret);
+    m_ueCphySapUser->ReportUeMeasurements(ret);
 
     m_ueMeasurementsMap.clear();
     Simulator::Schedule(m_ueMeasurementsFilterPeriod, &NrUePhy::ReportUeMeasurements, this);
@@ -1439,7 +1512,7 @@ void
 NrUePhy::DoSetInitialBandwidth()
 {
     NS_LOG_FUNCTION(this);
-    // configure initial bandwidth to 6 RBs
+    // configure initial bandwidth to 6 RBs, numerology 0
     double initialBandwidthHz =
         6 * GetSubcarrierSpacing() * NrSpectrumValueHelper::SUBCARRIERS_PER_RB;
     // divided by 100*1000 because the parameter should be in 100KHz
@@ -1539,24 +1612,141 @@ NrUePhy::SetPhySapUser(NrUePhySapUser* ptr)
 }
 
 void
+NrUePhy::DoNotifyConnectionSuccessful()
+{
+    /**
+     * Radio link failure detection should take place only on the
+     * primary carrier to avoid errors due to multiple calls to the
+     * same methods at the RRC layer
+     */
+    if (GetBwpId() == 0)
+    {
+        m_isConnected = true;
+        // Initialize the parameters for radio link failure detection
+        InitializeRlfParams();
+    }
+}
+
+void
 NrUePhy::DoResetPhyAfterRlf()
 {
     NS_LOG_FUNCTION(this);
-    NS_FATAL_ERROR("NrUePhy does not have RLF functionality yet");
+    // m_spectrumPhy->m_harqPhyModule->ClearDlHarqBuffer(m_rnti); // flush HARQ buffers
+    DoReset();
 }
 
 void
 NrUePhy::DoResetRlfParams()
 {
     NS_LOG_FUNCTION(this);
-    NS_FATAL_ERROR("NrUePhy does not have RLF functionality yet");
+    InitializeRlfParams();
 }
 
 void
 NrUePhy::DoStartInSyncDetection()
 {
     NS_LOG_FUNCTION(this);
-    NS_FATAL_ERROR("NrUePhy does not have RLF functionality yet");
+    // indicates that the downlink radio link quality has to be monitored for in-sync indications
+    m_downlinkInSync = false;
+}
+
+void
+NrUePhy::InitializeRlfParams()
+{
+    NS_LOG_FUNCTION(this);
+    m_numOfSubframes = 0;
+    m_sinrDbFrame = 0;
+    m_numOfFrames = 0;
+    m_downlinkInSync = true;
+}
+
+void
+NrUePhy::RlfDetection(double sinrDb)
+{
+    NS_LOG_FUNCTION(this << sinrDb);
+    m_sinrDbFrame += sinrDb;
+    m_numOfSubframes++;
+    NS_LOG_LOGIC("No of Subframes: " << m_numOfSubframes
+                                     << " UE synchronized: " << m_downlinkInSync);
+    // check for out_of_sync indications first when UE is both DL and UL synchronized
+    // m_downlinkInSync=true indicates that the evaluation is for out-of-sync indications
+    if (m_downlinkInSync && m_numOfSubframes == 10)
+    {
+        /**
+         * For every frame, if the downlink radio link quality(avg SINR)
+         * is less than the threshold Qout, then the frame cannot be decoded
+         */
+        if ((m_sinrDbFrame / m_numOfSubframes) < m_qOut)
+        {
+            m_numOfFrames++; // increment the counter if a frame cannot be decoded
+            NS_LOG_LOGIC("No of Frames which cannot be decoded: " << m_numOfFrames);
+        }
+        else
+        {
+            /**
+             * If the downlink radio link quality(avg SINR) is greater
+             * than the threshold Qout, then the frame counter is reset
+             * since only consecutive frames should be considered.
+             */
+            NS_LOG_INFO("Resetting frame counter at phy. Current value = " << m_numOfFrames);
+            m_numOfFrames = 0;
+            // Also reset the sync indicator counter at RRC
+            m_ueCphySapUser->ResetSyncIndicationCounter();
+        }
+        m_numOfSubframes = 0;
+        m_sinrDbFrame = 0;
+    }
+    /**
+     * Once the number of consecutive frames which cannot be decoded equals
+     * the Qout evaluation period (i.e 200ms), then an out-of-sync indication
+     * is sent to the RRC layer
+     */
+    if (m_downlinkInSync && (m_numOfFrames * 10) == m_numOfQoutEvalSf)
+    {
+        NS_LOG_LOGIC("At " << Simulator::Now().As(Time::MS)
+                           << " ms UE PHY sending out of sync indication to UE RRC layer");
+        m_ueCphySapUser->NotifyOutOfSync();
+        m_numOfFrames = 0;
+    }
+    // check for in_sync indications when T310 timer is started
+    // m_downlinkInSync=false indicates that the evaluation is for in-sync indications
+    if (!m_downlinkInSync && m_numOfSubframes == 10)
+    {
+        /**
+         * For every frame, if the downlink radio link quality(avg SINR)
+         * is greater than the threshold Qin, then the frame can be
+         * successfully decoded.
+         */
+        if ((m_sinrDbFrame / m_numOfSubframes) > m_qIn)
+        {
+            m_numOfFrames++; // increment the counter if a frame can be decoded
+            NS_LOG_LOGIC("No of Frames successfully decoded: " << m_numOfFrames);
+        }
+        else
+        {
+            /**
+             * If the downlink radio link quality(avg SINR) is less
+             * than the threshold Qin, then the frame counter is reset
+             * since only consecutive frames should be considered
+             */
+            m_numOfFrames = 0;
+            // Also reset the sync indicator counter at RRC
+            m_ueCphySapUser->ResetSyncIndicationCounter();
+        }
+        m_numOfSubframes = 0;
+        m_sinrDbFrame = 0;
+    }
+    /**
+     * Once the number of consecutive frames which can be decoded equals the Qin evaluation period
+     * (i.e 100ms), then an in-sync indication is sent to the RRC layer
+     */
+    if (!m_downlinkInSync && (m_numOfFrames * 10) == m_numOfQinEvalSf)
+    {
+        NS_LOG_LOGIC("At " << Simulator::Now().As(Time::MS)
+                           << " ms UE PHY sending in sync indication to UE RRC layer");
+        m_ueCphySapUser->NotifyInSync();
+        m_numOfFrames = 0;
+    }
 }
 
 void

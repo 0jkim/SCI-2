@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -160,9 +158,60 @@ NrMacSchedulerUeInfo::ResetUlMetric()
 }
 
 uint32_t
+NrMacSchedulerUeInfo::GetTotalDlBuffer() const
+{
+    uint32_t totBuffer = 0;
+    for (const auto& lcgInfo : m_dlLCG)
+    {
+        const auto& lcg = lcgInfo.second;
+        totBuffer += lcg->GetTotalSize();
+    }
+    return totBuffer;
+}
+
+uint32_t
 NrMacSchedulerUeInfo::GetNumRbPerRbg() const
 {
     return m_getNumRbPerRbg();
+}
+
+void
+NrMacSchedulerUeInfo::ReleaseLC(uint8_t lcid)
+{
+    for (auto lcgIt = m_dlLCG.begin(); lcgIt != m_dlLCG.end(); lcgIt++)
+    {
+        lcgIt->second->ReleaseLC(lcid);
+    }
+    for (auto lcgIt = m_ulLCG.begin(); lcgIt != m_ulLCG.end(); lcgIt++)
+    {
+        lcgIt->second->ReleaseLC(lcid);
+    }
+    auto it = m_dlLCG.begin();
+    while (it != m_dlLCG.end())
+    {
+        if (it->second->GetLCId().empty())
+        {
+            m_dlLCG.erase(it);
+            it = m_dlLCG.begin();
+        }
+        else
+        {
+            it++;
+        }
+    }
+    it = m_ulLCG.begin();
+    while (it != m_ulLCG.end())
+    {
+        if (it->second->GetLCId().empty())
+        {
+            m_ulLCG.erase(it);
+            it = m_ulLCG.begin();
+        }
+        else
+        {
+            it++;
+        }
+    }
 }
 
 } // namespace ns3

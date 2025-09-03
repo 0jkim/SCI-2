@@ -1,13 +1,17 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
-// Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
+// Copyright (c) 2011-2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
+//
+// Authors:
+//   Jaume Nin <jnin@cttc.es>
+//   Nicola Baldo <nbaldo@cttc.es>
+//   Manuel Requena <manuel.requena@cttc.es>
+//   (most of the code refactored to no-backhaul-epc-helper.h)
 
 #ifndef NR_POINT_TO_POINT_EPC_HELPER_H
 #define NR_POINT_TO_POINT_EPC_HELPER_H
 
-#include <ns3/point-to-point-epc-helper.h>
+#include "nr-no-backhaul-epc-helper.h"
 
 namespace ns3
 {
@@ -21,10 +25,10 @@ namespace ns3
  * automatic inside the NrHelper. All the user has to do, is:
  *
 \verbatim
-  Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper> ();
+  Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper> ();
   ...
   Ptr<NrHelper> nrHelper = CreateObject<NrHelper> ();
-  nrHelper->SetEpcHelper (epcHelper);
+  nrHelper->SetEpcHelper (nrEpcHelper);
 \endverbatim
  *
  * This helper will then used to create the links between the GNBs and the EPC.
@@ -32,7 +36,7 @@ namespace ns3
  * The user can set the point-to-point links properties by using:
  *
 \verbatim
-  epcHelper->SetAttribute ("AttributeName", UintegerValue (10));
+  nrEpcHelper->SetAttribute ("AttributeName", UintegerValue (10));
 \endverbatim
  *
  * And these attribute will be valid for all the code that follows the
@@ -43,7 +47,7 @@ namespace ns3
  *
  * You can obtain the pointer to the PGW node by doing:
 \verbatim
-  Ptr<Node> pgw = epcHelper->GetPgwNode ();
+  Ptr<Node> pgw = nrEpcHelper->GetPgwNode ();
 \endverbatim
  *
  * After that, you would probably want to setup a network between the PGW and
@@ -84,7 +88,8 @@ namespace ns3
  *
 \verbatim
   NetDeviceContainer netDeviceContainerForUe = ...;
-  Ipv4InterfaceContainer ueLowLatIpIface = epcHelper->AssignUeIpv4Address (netDeviceContainerForUe);
+  Ipv4InterfaceContainer ueLowLatIpIface = nrEpcHelper->AssignUeIpv4Address
+(netDeviceContainerForUe);
 \endverbatim
  *
  * And, of course, you would like to set the default routing for the UE,
@@ -96,7 +101,7 @@ namespace ns3
     {
       Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting
 (ueContainer.Get(j)->GetObject<Ipv4> ()); ueStaticRouting->SetDefaultRoute
-(epcHelper->GetUeDefaultGatewayAddress (), 1);
+(nrEpcHelper->GetUeDefaultGatewayAddress (), 1);
     }
 \endverbatim
  *
@@ -104,7 +109,7 @@ namespace ns3
  *
  * \see PointToPointEpcHelper
  */
-class NrPointToPointEpcHelper : public PointToPointEpcHelper
+class NrPointToPointEpcHelper : public NrNoBackhaulEpcHelper
 {
   public:
     /**
@@ -123,17 +128,56 @@ class NrPointToPointEpcHelper : public PointToPointEpcHelper
      *  \return The object TypeId.
      */
     static TypeId GetTypeId();
+    TypeId GetInstanceTypeId() const override;
+    void DoDispose() override;
 
-  protected:
-    void DoAddX2Interface(const Ptr<EpcX2>& gnb1X2,
-                          const Ptr<NetDevice>& gnb1NetDev,
-                          const Ipv4Address& gnb1X2Address,
-                          const Ptr<EpcX2>& gnb2X2,
-                          const Ptr<NetDevice>& gnb2NetDev,
-                          const Ipv4Address& gnb2X2Address) const override;
-    void DoActivateEpsBearerForUe(const Ptr<NetDevice>& ueDevice,
-                                  const Ptr<EpcTft>& tft,
-                                  const EpsBearer& bearer) const override;
+    // inherited from NrEpcHelper
+    void AddGnb(Ptr<Node> gnbNode,
+                Ptr<NetDevice> nrGnbNetDevice,
+                std::vector<uint16_t> cellIds) override;
+
+  private:
+    /**
+     * S1-U interfaces
+     */
+
+    /**
+     * Helper to assign addresses to S1-U NetDevices
+     */
+    Ipv4AddressHelper m_s1uIpv4AddressHelper;
+
+    /**
+     * The data rate to be used for the next S1-U link to be created
+     */
+    DataRate m_s1uLinkDataRate;
+
+    /**
+     * The delay to be used for the next S1-U link to be created
+     */
+    Time m_s1uLinkDelay;
+
+    /**
+     * The MTU of the next S1-U link to be created. Note that,
+     * because of the additional GTP/UDP/IP tunneling overhead,
+     * you need a MTU larger than the end-to-end MTU that you
+     * want to support.
+     */
+    uint16_t m_s1uLinkMtu;
+
+    /**
+     * Helper to assign addresses to S1-MME NetDevices
+     */
+    Ipv4AddressHelper m_s1apIpv4AddressHelper;
+
+    /**
+     * Enable PCAP generation for S1 link
+     */
+    bool m_s1uLinkEnablePcap;
+
+    /**
+     * Prefix for the PCAP file for the S1 link
+     */
+    std::string m_s1uLinkPcapPrefix;
 };
 
 } // namespace ns3

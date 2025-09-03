@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2020 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -37,7 +35,7 @@ class LenaV2Utils
                                              const NodeContainer& ueSector1Container,
                                              const NodeContainer& ueSector2Container,
                                              const NodeContainer& ueSector3Container,
-                                             const Ptr<PointToPointEpcHelper>& baseEpcHelper,
+                                             const Ptr<NrPointToPointEpcHelper>& baseEpcHelper,
                                              Ptr<NrHelper>& nrHelper,
                                              NetDeviceContainer& gnbSector1NetDev,
                                              NetDeviceContainer& gnbSector2NetDev,

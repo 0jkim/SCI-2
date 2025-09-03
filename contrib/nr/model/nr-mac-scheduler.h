@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -13,6 +11,9 @@
 
 namespace ns3
 {
+
+class NrFhSchedSapProvider;
+class NrFhSchedSapUser;
 
 /**
  * \ingroup scheduler
@@ -76,6 +77,22 @@ class NrMacScheduler : public Object
     {
         return m_macCschedSapProvider;
     }
+
+    // FH Control SAPs
+    /**
+     *
+     * Set the Provider part of the NrFhSchedSap that this Scheduler will
+     * interact with
+     *
+     * \param s
+     */
+    virtual void SetNrFhSchedSapProvider(NrFhSchedSapProvider* s) = 0;
+
+    /**
+     *
+     * \return the User part of the NrFhSchedSap provided by the FhControl
+     */
+    virtual NrFhSchedSapUser* GetNrFhSchedSapUser() = 0;
 
     //
     // Implementation of the CSCHED API primitives

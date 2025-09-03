@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2021 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -21,7 +19,7 @@ NrMacSchedulingStats::NrMacSchedulingStats()
 {
     NS_LOG_FUNCTION(this);
     SetDlOutputFilename(GetDlOutputFilename());
-    SetUlOutputFilename(GetDlOutputFilename());
+    SetUlOutputFilename(GetUlOutputFilename());
 }
 
 NrMacSchedulingStats::~NrMacSchedulingStats()
@@ -173,7 +171,7 @@ NrMacSchedulingStats::DlSchedulingCallback(Ptr<NrMacSchedulingStats> macStats,
     uint64_t imsi = 0;
     std::ostringstream pathAndRnti;
     std::string pathGnb = path.substr(0, path.find("/BandwidthPartMap"));
-    pathAndRnti << pathGnb << "/LteEnbRrc/UeMap/" << traceInfo.m_rnti;
+    pathAndRnti << pathGnb << "/NrGnbRrc/UeMap/" << traceInfo.m_rnti;
     if (macStats->ExistsImsiPath(pathAndRnti.str()))
     {
         imsi = macStats->GetImsiPath(pathAndRnti.str());
@@ -207,7 +205,7 @@ NrMacSchedulingStats::UlSchedulingCallback(Ptr<NrMacSchedulingStats> macStats,
     uint64_t imsi = 0;
     std::ostringstream pathAndRnti;
     std::string pathGnb = path.substr(0, path.find("/BandwidthPartMap"));
-    pathAndRnti << pathGnb << "/LteEnbRrc/UeMap/" << traceInfo.m_rnti;
+    pathAndRnti << pathGnb << "/NrGnbRrc/UeMap/" << traceInfo.m_rnti;
     if (macStats->ExistsImsiPath(pathAndRnti.str()))
     {
         imsi = macStats->GetImsiPath(pathAndRnti.str());

@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2020 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -49,7 +47,6 @@ $ ./ns3 run "cttc-fh-compression --PrintHelp"
 #include "ns3/nr-module.h"
 #include "ns3/point-to-point-module.h"
 #include <ns3/antenna-module.h>
-#include <ns3/radio-environment-map-helper.h>
 #include <ns3/rng-seed-manager.h>
 #include <ns3/three-gpp-ftp-m1-helper.h>
 
@@ -254,7 +251,7 @@ Set5gLenaSimulatorParameters(HexagonalGridScenarioHelper gridScenario,
                              NodeContainer ueSector1Container,
                              NodeContainer ueSector2Container,
                              NodeContainer ueSector3Container,
-                             Ptr<PointToPointEpcHelper>& baseEpcHelper,
+                             Ptr<NrPointToPointEpcHelper>& baseNrEpcHelper,
                              Ptr<NrHelper>& nrHelper,
                              NetDeviceContainer& gnbSector1NetDev,
                              NetDeviceContainer& gnbSector2NetDev,
@@ -315,8 +312,9 @@ Set5gLenaSimulatorParameters(HexagonalGridScenarioHelper gridScenario,
     // Put the pointers inside nrHelper
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = DynamicCast<NrPointToPointEpcHelper>(baseEpcHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper =
+        DynamicCast<NrPointToPointEpcHelper>(baseNrEpcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     /*
      * Spectrum division. We create one operational band containing three
@@ -398,6 +396,7 @@ Set5gLenaSimulatorParameters(HexagonalGridScenarioHelper gridScenario,
     if (operationMode == "FDD")
     {
         numBwpPerCc = 2; // FDD will have 2 BWPs per CC
+        Config::SetDefault("ns3::NrUeNetDevice::PrimaryUlIndex", UintegerValue(1));
     }
 
     CcBwpCreator::SimpleOperationBandConf bandConf1(centralFrequencyBand1,
@@ -495,7 +494,7 @@ Set5gLenaSimulatorParameters(HexagonalGridScenarioHelper gridScenario,
     //  28, 16, 9 for mcsT1
 
     // Core latency
-    epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    nrEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
 
     // Antennas for all the UEs
     nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(1));
@@ -550,7 +549,7 @@ Set5gLenaSimulatorParameters(HexagonalGridScenarioHelper gridScenario,
      * to the NetDevices, which contains all the NR stack:
      */
 
-    //  NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice (gridScenario.GetBaseStations (),
+    //  NetDeviceContainer gnbNetDev = nrHelper->InstallGnbDevice (gridScenario.GetBaseStations (),
     //  allBwps);
     gnbSector1NetDev = nrHelper->InstallGnbDevice(gnbSector1Container, bwps1);
     gnbSector2NetDev = nrHelper->InstallGnbDevice(gnbSector2Container, bwps2);
@@ -878,37 +877,39 @@ Set5gLenaSimulatorParameters(HexagonalGridScenarioHelper gridScenario,
     }
 
     // When all the configuration is done, explicitly call UpdateConfig ()
-
-    for (auto it = gnbSector1NetDev.Begin(); it != gnbSector1NetDev.End(); ++it)
-    {
-        DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
-    }
-
-    for (auto it = gnbSector2NetDev.Begin(); it != gnbSector2NetDev.End(); ++it)
-    {
-        DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
-    }
-
-    for (auto it = gnbSector3NetDev.Begin(); it != gnbSector3NetDev.End(); ++it)
-    {
-        DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
-    }
-
-    for (auto it = ueSector1NetDev.Begin(); it != ueSector1NetDev.End(); ++it)
-    {
-        DynamicCast<NrUeNetDevice>(*it)->UpdateConfig();
-    }
-
-    for (auto it = ueSector2NetDev.Begin(); it != ueSector2NetDev.End(); ++it)
-    {
-        DynamicCast<NrUeNetDevice>(*it)->UpdateConfig();
-    }
-
-    for (auto it = ueSector3NetDev.Begin(); it != ueSector3NetDev.End(); ++it)
-    {
-        DynamicCast<NrUeNetDevice>(*it)->UpdateConfig();
-    }
+    nrHelper->UpdateDeviceConfigs(gnbSector1NetDev);
+    nrHelper->UpdateDeviceConfigs(gnbSector2NetDev);
+    nrHelper->UpdateDeviceConfigs(gnbSector3NetDev);
+    nrHelper->UpdateDeviceConfigs(ueSector1NetDev);
+    nrHelper->UpdateDeviceConfigs(ueSector2NetDev);
+    nrHelper->UpdateDeviceConfigs(ueSector3NetDev);
 }
+
+template <typename T>
+Ptr<T>
+CreateLowLatTft(uint16_t start, uint16_t end, std::string dir)
+{
+    Ptr<T> lowLatTft;
+    lowLatTft = Create<T>();
+    typename T::PacketFilter dlpfLowLat;
+    if (dir == "DL")
+    {
+        dlpfLowLat.localPortStart = start;
+        dlpfLowLat.localPortEnd = end;
+        dlpfLowLat.direction = T::DOWNLINK;
+    }
+    else
+    {
+        dlpfLowLat.remotePortStart = start;
+        dlpfLowLat.remotePortEnd = end;
+        dlpfLowLat.direction = T::UPLINK;
+    }
+    lowLatTft->Add(dlpfLowLat);
+    return lowLatTft;
+}
+
+template Ptr<ns3::EpcTft> CreateLowLatTft<ns3::EpcTft>(uint16_t, uint16_t, std::string);
+template Ptr<ns3::NrEpcTft> CreateLowLatTft<ns3::NrEpcTft>(uint16_t, uint16_t, std::string);
 
 int
 main(int argc, char* argv[])
@@ -1049,7 +1050,7 @@ main(int argc, char* argv[])
     {
         LogComponentEnable("UdpClient", LOG_LEVEL_INFO);
         LogComponentEnable("UdpServer", LOG_LEVEL_INFO);
-        LogComponentEnable("LtePdcp", LOG_LEVEL_INFO);
+        LogComponentEnable("NrPdcp", LOG_LEVEL_INFO);
         //      LogComponentEnable ("NrMacSchedulerOfdma", LOG_LEVEL_ALL);
     }
 
@@ -1057,7 +1058,7 @@ main(int argc, char* argv[])
      * Default values for the simulation. We are progressively removing all
      * the instances of SetDefault, but we need it for legacy code (LTE)
      */
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
 
     /*
      * Create the scenario. In our examples, we heavily use helpers that setup
@@ -1135,7 +1136,7 @@ main(int argc, char* argv[])
      * Setup the LTE or NR module. We create the various helpers needed inside
      * their respective configuration functions
      */
-    Ptr<PointToPointEpcHelper> epcHelper;
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper;
 
     NetDeviceContainer gnbSector1NetDev;
     NetDeviceContainer gnbSector2NetDev;
@@ -1144,12 +1145,12 @@ main(int argc, char* argv[])
     NetDeviceContainer ueSector2NetDev;
     NetDeviceContainer ueSector3NetDev;
 
-    Ptr<LteHelper> lteHelper = nullptr;
-    Ptr<NrHelper> nrHelper = nullptr;
+    Ptr<LteHelper> lteHelper;
+    Ptr<NrHelper> nrHelper;
 
     std::vector<int16_t> maxMcsVector = GetMcsVectorFromInput(maxMcsVectorInput);
 
-    epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Set5gLenaSimulatorParameters(gridScenario,
                                  scenario,
                                  radioNetwork,
@@ -1166,7 +1167,7 @@ main(int argc, char* argv[])
                                  ueSector1Container,
                                  ueSector2Container,
                                  ueSector3Container,
-                                 epcHelper,
+                                 nrEpcHelper,
                                  nrHelper,
                                  gnbSector1NetDev,
                                  gnbSector2NetDev,
@@ -1185,7 +1186,7 @@ main(int argc, char* argv[])
 
     // create the internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -1208,11 +1209,11 @@ main(int argc, char* argv[])
     internet.Install(gridScenario.GetUserTerminals());
 
     Ipv4InterfaceContainer ueSector1IpIface =
-        epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueSector1NetDev));
+        nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueSector1NetDev));
     Ipv4InterfaceContainer ueSector2IpIface =
-        epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueSector2NetDev));
+        nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueSector2NetDev));
     Ipv4InterfaceContainer ueSector3IpIface =
-        epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueSector3NetDev));
+        nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueSector3NetDev));
 
     Ipv4Address remoteHostAddr = internetIpIfaces.GetAddress(1);
 
@@ -1221,7 +1222,7 @@ main(int argc, char* argv[])
     {
         Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting(
             gridScenario.GetUserTerminals().Get(j)->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
     }
 
     // attach UEs to their gNB. Try to attach them per cellId order
@@ -1239,7 +1240,7 @@ main(int argc, char* argv[])
             }
             else if (nrHelper != nullptr)
             {
-                nrHelper->AttachToEnb(ueNetDev, gnbNetDev);
+                nrHelper->AttachToGnb(ueNetDev, gnbNetDev);
             }
             else
             {
@@ -1263,7 +1264,7 @@ main(int argc, char* argv[])
             }
             else if (nrHelper != nullptr)
             {
-                nrHelper->AttachToEnb(ueNetDev, gnbNetDev);
+                nrHelper->AttachToGnb(ueNetDev, gnbNetDev);
             }
             else
             {
@@ -1287,7 +1288,7 @@ main(int argc, char* argv[])
             }
             else if (nrHelper != nullptr)
             {
-                nrHelper->AttachToEnb(ueNetDev, gnbNetDev);
+                nrHelper->AttachToGnb(ueNetDev, gnbNetDev);
             }
             else
             {
@@ -1343,23 +1344,11 @@ main(int argc, char* argv[])
 
     // The bearer that will carry low latency traffic
     EpsBearer lowLatBearer(EpsBearer::NGBR_VIDEO_TCP_DEFAULT);
+    NrEpsBearer nrLowLatBearer(NrEpsBearer::NGBR_VIDEO_TCP_DEFAULT);
 
     // The filter for the low-latency traffic
-    Ptr<EpcTft> lowLatTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpfLowLat;
-    if (direction == "DL")
-    {
-        dlpfLowLat.localPortStart = dlPortLowLat;
-        dlpfLowLat.localPortEnd = dlPortLowLat;
-        dlpfLowLat.direction = EpcTft::DOWNLINK;
-    }
-    else
-    {
-        dlpfLowLat.remotePortStart = dlPortLowLat;
-        dlpfLowLat.remotePortEnd = dlPortLowLat;
-        dlpfLowLat.direction = EpcTft::UPLINK;
-    }
-    lowLatTft->Add(dlpfLowLat);
+    Ptr<EpcTft> lowLatTft = CreateLowLatTft<EpcTft>(dlPortLowLat, dlPortLowLat, direction);
+    Ptr<NrEpcTft> nrLowLatTft = CreateLowLatTft<NrEpcTft>(dlPortLowLat, dlPortLowLat, direction);
 
     std::vector<uint32_t> lambdaPerCell(gridScenario.GetNumCells());
     if (uniformLambda)
@@ -1484,7 +1473,7 @@ main(int argc, char* argv[])
             }
             else if (nrHelper != nullptr)
             {
-                nrHelper->ActivateDedicatedEpsBearer(ueDevice, lowLatBearer, lowLatTft);
+                nrHelper->ActivateDedicatedEpsBearer(ueDevice, nrLowLatBearer, nrLowLatTft);
             }
             else
             {
@@ -1529,7 +1518,7 @@ main(int argc, char* argv[])
             }
             else if (nrHelper != nullptr)
             {
-                nrHelper->ActivateDedicatedEpsBearer(ueDevice, lowLatBearer, lowLatTft);
+                nrHelper->ActivateDedicatedEpsBearer(ueDevice, nrLowLatBearer, nrLowLatTft);
             }
             else
             {
@@ -1574,7 +1563,7 @@ main(int argc, char* argv[])
             }
             else if (nrHelper != nullptr)
             {
-                nrHelper->ActivateDedicatedEpsBearer(ueDevice, lowLatBearer, lowLatTft);
+                nrHelper->ActivateDedicatedEpsBearer(ueDevice, nrLowLatBearer, nrLowLatTft);
             }
             else
             {
@@ -1616,7 +1605,7 @@ main(int argc, char* argv[])
     Simulator::Run();
 
     /*
-     * To check what was installed in the memory, i.e., BWPs of eNb Device, and its configuration.
+     * To check what was installed in the memory, i.e., BWPs of gNB Device, and its configuration.
      * Example is: Node 1 -> Device 0 -> BandwidthPartMap -> {0,1} BWPs -> NrGnbPhy -> Numerology,
     GtkConfigStore config;
     config.ConfigureAttributes ();
@@ -1692,7 +1681,7 @@ main(int argc, char* argv[])
         }
         // outFile << "  Rx Packets: " << i->second.rxPackets << "\n";
     }
-    std::sort(delayValues.begin(), delayValues.end());
+    std::stable_sort(delayValues.begin(), delayValues.end());
     // for (uint32_t i = 0; i < stats.size(); i++)
     //   {
     //     std::cout << delayValues[i] << " ";

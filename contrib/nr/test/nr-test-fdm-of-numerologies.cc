@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2020 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -7,10 +5,10 @@
 #include "ns3/antenna-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/core-module.h"
-#include "ns3/eps-bearer-tag.h"
 #include "ns3/internet-module.h"
 #include "ns3/mobility-module.h"
 #include "ns3/network-module.h"
+#include "ns3/nr-eps-bearer-tag.h"
 #include "ns3/nr-module.h"
 #include "ns3/point-to-point-helper.h"
 #include "ns3/three-gpp-channel-model.h"
@@ -87,8 +85,8 @@ NrTestFdmOfNumerologiesCase1::DoRun()
     uint16_t ueNumPergNb = 2;
     uint32_t packetSize = 1000;
 
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
-    Config::SetDefault("ns3::EpsBearer::Release", UintegerValue(15));
+    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefault("ns3::NrEpsBearer::Release", UintegerValue(15));
 
     RngSeedManager::SetSeed(1);
     RngSeedManager::SetRun(1);
@@ -118,7 +116,7 @@ NrTestFdmOfNumerologiesCase1::DoRun()
     double totalBandwidth = 0;
     totalBandwidth = m_bw1 + m_bw2;
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
 
@@ -137,7 +135,7 @@ NrTestFdmOfNumerologiesCase1::DoRun()
     nrHelper->SetGnbAntennaAttribute("AntennaElement",
                                      PointerValue(CreateObject<IsotropicAntennaModel>()));
 
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     BandwidthPartInfoPtrVector allBwps;
     CcBwpCreator ccBwpCreator;
@@ -168,19 +166,19 @@ NrTestFdmOfNumerologiesCase1::DoRun()
     nrHelper->SetUeBwpManagerAlgorithmAttribute("GBR_CONV_VOICE", UintegerValue(1));
 
     // install nr net devices
-    NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice(gNbNodes, allBwps);
+    NetDeviceContainer gnbNetDev = nrHelper->InstallGnbDevice(gNbNodes, allBwps);
     NetDeviceContainer ueNetDev = nrHelper->InstallUeDevice(ueNodes, allBwps);
 
     double x = pow(10, totalTxPower / 10);
 
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)
         ->SetAttribute("Numerology", UintegerValue(m_numerology));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 1)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 1)
         ->SetAttribute("Numerology", UintegerValue(m_numerology));
 
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)
         ->SetAttribute("TxPower", DoubleValue(10 * log10((m_bw1 / totalBandwidth) * x)));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 1)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 1)
         ->SetAttribute("TxPower", DoubleValue(10 * log10((m_bw2 / totalBandwidth) * x)));
 
     nrHelper->GetUePhy(ueNetDev.Get(0), 0)
@@ -199,7 +197,7 @@ NrTestFdmOfNumerologiesCase1::DoRun()
         for (uint8_t bwpId = 0; bwpId < 2; bwpId++)
         {
             Ptr<const NrSpectrumPhy> txSpectrumPhy =
-                nrHelper->GetGnbPhy(enbNetDev.Get(j), bwpId)->GetSpectrumPhy();
+                nrHelper->GetGnbPhy(gnbNetDev.Get(j), bwpId)->GetSpectrumPhy();
             Ptr<SpectrumChannel> txSpectrumChannel = txSpectrumPhy->GetSpectrumChannel();
             Ptr<ThreeGppPropagationLossModel> propagationLossModel =
                 DynamicCast<ThreeGppPropagationLossModel>(
@@ -245,7 +243,7 @@ NrTestFdmOfNumerologiesCase1::DoRun()
         }
     }
 
-    for (auto it = enbNetDev.Begin(); it != enbNetDev.End(); ++it)
+    for (auto it = gnbNetDev.Begin(); it != gnbNetDev.End(); ++it)
     {
         DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
     }
@@ -257,7 +255,7 @@ NrTestFdmOfNumerologiesCase1::DoRun()
 
     // create the internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -281,18 +279,18 @@ NrTestFdmOfNumerologiesCase1::DoRun()
     remoteHostStaticRouting->AddNetworkRouteTo(Ipv4Address("7.0.0.0"), Ipv4Mask("255.0.0.0"), 1);
     internet.Install(ueNodes);
     Ipv4InterfaceContainer ueIpIface;
-    ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
+    ueIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
 
     // Set the default gateway for the UEs
     for (uint32_t j = 0; j < ueNodes.GetN(); ++j)
     {
         Ptr<Ipv4StaticRouting> ueStaticRouting =
             ipv4RoutingHelper.GetStaticRouting(ueNodes.Get(j)->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
     }
 
-    // attach UEs to the closest eNB
-    nrHelper->AttachToClosestEnb(ueNetDev, enbNetDev);
+    // attach UEs to the closest gNB
+    nrHelper->AttachToClosestGnb(ueNetDev, gnbNetDev);
 
     // assign IP address to UEs, and install UDP downlink applications
     uint16_t dlPort = 1234;
@@ -320,24 +318,24 @@ NrTestFdmOfNumerologiesCase1::DoRun()
                                               // a short time, how much traffic can handle each BWP
             clientAppsUl.Add(ulClient.Install(ueNodes.Get(j)));
 
-            Ptr<EpcTft> tft = Create<EpcTft>();
-            EpcTft::PacketFilter ulpf;
+            Ptr<NrEpcTft> tft = Create<NrEpcTft>();
+            NrEpcTft::PacketFilter ulpf;
             ulpf.remotePortStart = ulPort;
             ulpf.remotePortEnd = ulPort;
             tft->Add(ulpf);
 
-            enum EpsBearer::Qci q;
+            enum NrEpsBearer::Qci q;
 
             if (j == 0)
             {
-                q = EpsBearer::NGBR_LOW_LAT_EMBB;
+                q = NrEpsBearer::NGBR_LOW_LAT_EMBB;
             }
             else
             {
-                q = EpsBearer::GBR_CONV_VOICE;
+                q = NrEpsBearer::GBR_CONV_VOICE;
             }
 
-            EpsBearer bearer(q);
+            NrEpsBearer bearer(q);
             nrHelper->ActivateDedicatedEpsBearer(ueNetDev.Get(j), bearer, tft);
 
             ulPort++;
@@ -366,24 +364,24 @@ NrTestFdmOfNumerologiesCase1::DoRun()
                                               // a short time, how much traffic can handle each BWP
             clientAppsDl.Add(dlClient.Install(remoteHost));
 
-            Ptr<EpcTft> tft = Create<EpcTft>();
-            EpcTft::PacketFilter dlpf;
+            Ptr<NrEpcTft> tft = Create<NrEpcTft>();
+            NrEpcTft::PacketFilter dlpf;
             dlpf.localPortStart = dlPort;
             dlpf.localPortEnd = dlPort;
             tft->Add(dlpf);
 
-            enum EpsBearer::Qci q;
+            enum NrEpsBearer::Qci q;
 
             if (j == 0)
             {
-                q = EpsBearer::NGBR_LOW_LAT_EMBB;
+                q = NrEpsBearer::NGBR_LOW_LAT_EMBB;
             }
             else
             {
-                q = EpsBearer::GBR_CONV_VOICE;
+                q = NrEpsBearer::GBR_CONV_VOICE;
             }
 
-            EpsBearer bearer(q);
+            NrEpsBearer bearer(q);
             nrHelper->ActivateDedicatedEpsBearer(ueNetDev.Get(j), bearer, tft);
         }
 

@@ -11,8 +11,8 @@
 #include "ns3/flow-monitor-module.h"
 #include "ns3/internet-apps-module.h"
 #include "ns3/internet-module.h"
-#include "ns3/lte-enb-rrc.h"
 #include "ns3/mobility-module.h"
+#include "ns3/nr-gnb-rrc.h"
 #include "ns3/nr-module.h"
 #include "ns3/packet-sink.h"
 #include "ns3/point-to-point-module.h"
@@ -50,10 +50,10 @@ ConfigureXrApp(NodeContainer& ueContainer,
                NodeContainer& remoteHostContainer,
                NetDeviceContainer& ueNetDev,
                Ptr<NrHelper> nrHelper,
-               EpsBearer& bearer,
-               Ptr<EpcTft> tft,
+               NrEpsBearer& bearer,
+               Ptr<NrEpcTft> tft,
                bool isMx1,
-               std::vector<Ptr<EpcTft>>& tfts,
+               std::vector<Ptr<NrEpcTft>>& tfts,
                ApplicationContainer& serverApps,
                ApplicationContainer& clientApps,
                ApplicationContainer& pingApps)
@@ -192,9 +192,9 @@ main(int argc, char* argv[])
     nrHelper->SetUePhyAttribute("TxPower", DoubleValue(23));
     nrHelper->SetUePhyAttribute("NoiseFigure", DoubleValue(7));
 
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
-    Config::SetDefault("ns3::LteEnbRrc::EpsBearerToRlcMapping",
-                       EnumValue(useUdp ? LteEnbRrc::RLC_UM_ALWAYS : LteEnbRrc::RLC_AM_ALWAYS));
+    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefault("ns3::NrGnbRrc::EpsBearerToRlcMapping",
+                       EnumValue(useUdp ? NrGnbRrc::RLC_UM_ALWAYS : NrGnbRrc::RLC_AM_ALWAYS));
 
     nrHelper->SetGnbAntennaAttribute("NumRows", UintegerValue(4));
     nrHelper->SetGnbAntennaAttribute("NumColumns", UintegerValue(8));
@@ -214,9 +214,9 @@ main(int argc, char* argv[])
                                          TypeIdValue(DirectPathBeamforming::GetTypeId()));
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
-    nrHelper->SetEpcHelper(epcHelper);
-    epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
+    nrHelper->SetEpcHelper(nrEpcHelper);
+    nrEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
 
     // Initialize nrHelper
     nrHelper->Initialize();
@@ -303,7 +303,7 @@ main(int argc, char* argv[])
 
     // create the internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -330,22 +330,22 @@ main(int argc, char* argv[])
     Ipv4InterfaceContainer ueVrIpIface;
     Ipv4InterfaceContainer ueCgIpIface;
 
-    ueArIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueArNetDev));
-    ueVrIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueVrNetDev));
-    ueCgIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueCgNetDev));
+    ueArIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueArNetDev));
+    ueVrIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueVrNetDev));
+    ueCgIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueCgNetDev));
 
     // Set the default gateway for the UEs
     for (uint32_t j = 0; j < ueNodes.GetN(); ++j)
     {
         Ptr<Ipv4StaticRouting> ueStaticRouting =
             ipv4RoutingHelper.GetStaticRouting(ueNodes.Get(j)->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
     }
 
-    // attach UEs to the closest eNB
-    nrHelper->AttachToClosestEnb(ueArNetDev, gNbNetDev);
-    nrHelper->AttachToClosestEnb(ueVrNetDev, gNbNetDev);
-    nrHelper->AttachToClosestEnb(ueCgNetDev, gNbNetDev);
+    // attach UEs to the closest gNB
+    nrHelper->AttachToClosestGnb(ueArNetDev, gNbNetDev);
+    nrHelper->AttachToClosestGnb(ueVrNetDev, gNbNetDev);
+    nrHelper->AttachToClosestGnb(ueCgNetDev, gNbNetDev);
 
     // Install sink application
     ApplicationContainer serverApps;
@@ -359,10 +359,10 @@ main(int argc, char* argv[])
     uint16_t dlPortCgStart = 1141;
 
     // The bearer that will carry AR traffic
-    EpsBearer arBearer(EpsBearer::NGBR_LOW_LAT_EMBB);
-    Ptr<EpcTft> arTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpfAr;
-    std::vector<Ptr<EpcTft>> arTfts;
+    NrEpsBearer arBearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
+    Ptr<NrEpcTft> arTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpfAr;
+    std::vector<Ptr<NrEpcTft>> arTfts;
 
     if (isMx1)
     {
@@ -375,7 +375,7 @@ main(int argc, char* argv[])
         // create 3 xrTfts for 1x1 mapping
         for (uint32_t i = 0; i < 3; i++)
         {
-            Ptr<EpcTft> tempTft = Create<EpcTft>();
+            Ptr<NrEpcTft> tempTft = Create<NrEpcTft>();
             dlpfAr.localPortStart = dlPortArStart + i;
             dlpfAr.localPortEnd = dlPortArStart + i;
             tempTft->Add(dlpfAr);
@@ -383,19 +383,19 @@ main(int argc, char* argv[])
         }
     }
     // The bearer that will carry VR traffic
-    EpsBearer vrBearer(EpsBearer::NGBR_LOW_LAT_EMBB);
+    NrEpsBearer vrBearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
 
-    Ptr<EpcTft> vrTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpfVr;
+    Ptr<NrEpcTft> vrTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpfVr;
     dlpfVr.localPortStart = dlPortVrStart;
     dlpfVr.localPortEnd = dlPortVrStart;
     vrTft->Add(dlpfVr);
 
     // The bearer that will carry CG traffic
-    EpsBearer cgBearer(EpsBearer::NGBR_LOW_LAT_EMBB);
+    NrEpsBearer cgBearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
 
-    Ptr<EpcTft> cgTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpfCg;
+    Ptr<NrEpcTft> cgTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpfCg;
     dlpfCg.localPortStart = dlPortCgStart;
     dlpfCg.localPortEnd = dlPortCgStart;
     cgTft->Add(dlpfCg);

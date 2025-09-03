@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2020 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -9,9 +7,9 @@
 #include "nr-gnb-phy.h"
 #include "nr-mac-scheduler-ns3.h"
 #include "nr-ue-phy.h"
+#include "nr-ue-rrc.h"
 
 #include <ns3/double.h>
-#include <ns3/lte-ue-rrc.h>
 #include <ns3/mobility-model.h>
 #include <ns3/node.h>
 #include <ns3/nr-spectrum-value-helper.h>

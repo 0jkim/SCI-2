@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2020 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -7,6 +5,8 @@
 #include "cttc-nr-3gpp-calibration-utils-v1.h"
 
 #include "cttc-nr-3gpp-calibration-utils-v2.h"
+
+#include "ns3/config.h"
 
 namespace ns3
 {

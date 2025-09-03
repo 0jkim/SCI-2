@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2020 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -214,15 +212,15 @@ main(int argc, char* argv[])
         // LogComponentEnable ("ChannelConditionModel", LOG_LEVEL_ALL);
         // LogComponentEnable ("UdpClient", LOG_LEVEL_INFO);
         // LogComponentEnable ("UdpServer", LOG_LEVEL_INFO);
-        // LogComponentEnable ("LteRlcUm", LOG_LEVEL_LOGIC);
-        // LogComponentEnable ("LtePdcp", LOG_LEVEL_INFO);
+        // LogComponentEnable ("NrRlcUm", LOG_LEVEL_LOGIC);
+        // LogComponentEnable ("NrPdcp", LOG_LEVEL_INFO);
     }
 
     /*
      * Default values for the simulation. We are progressively removing all
      * the instances of SetDefault, but we need it for legacy code (LTE)
      */
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
 
     // set mobile device and base station antenna heights in meters, according to the chosen
     // scenario
@@ -368,12 +366,12 @@ main(int argc, char* argv[])
     /*
      * Create NR simulation helpers
      */
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
 
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     /*
      * Spectrum configuration:
@@ -431,7 +429,7 @@ main(int argc, char* argv[])
         NS_FATAL_ERROR("Beamforming does not exist:" << beamforming);
     }
 
-    epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    nrEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
 
     // Antennas for the UEs
     nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(numRowsUe));
@@ -491,7 +489,7 @@ main(int argc, char* argv[])
 
     // create the internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -516,7 +514,7 @@ main(int argc, char* argv[])
     internet.Install(ueNodes);
 
     Ipv4InterfaceContainer ueIpIface;
-    ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
+    ueIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
 
     // assign IP address to UEs, and install UDP downlink applications
     uint16_t dlPort = 1234;
@@ -528,7 +526,7 @@ main(int argc, char* argv[])
         // Set the default gateway for the UE
         Ptr<Ipv4StaticRouting> ueStaticRouting =
             ipv4RoutingHelper.GetStaticRouting(ueNode->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
 
         UdpServerHelper dlPacketSinkHelper(dlPort);
         serverApps.Add(dlPacketSinkHelper.Install(ueNodes.Get(u)));
@@ -542,18 +540,18 @@ main(int argc, char* argv[])
     }
 
     // attach UEs to the closest gNB
-    nrHelper->AttachToEnb(ueNetDev.Get(0), gnbNetDev.Get(0));
+    nrHelper->AttachToGnb(ueNetDev.Get(0), gnbNetDev.Get(0));
 
     if (deploymentScenario == "TwoGnbs")
     {
-        nrHelper->AttachToEnb(ueNetDev.Get(1), gnbNetDev.Get(1));
+        nrHelper->AttachToGnb(ueNetDev.Get(1), gnbNetDev.Get(1));
     }
 
     if (deploymentScenario == "FourGnbs")
     {
-        nrHelper->AttachToEnb(ueNetDev.Get(1), gnbNetDev.Get(1));
-        nrHelper->AttachToEnb(ueNetDev.Get(2), gnbNetDev.Get(2));
-        nrHelper->AttachToEnb(ueNetDev.Get(3), gnbNetDev.Get(3));
+        nrHelper->AttachToGnb(ueNetDev.Get(1), gnbNetDev.Get(1));
+        nrHelper->AttachToGnb(ueNetDev.Get(2), gnbNetDev.Get(2));
+        nrHelper->AttachToGnb(ueNetDev.Get(3), gnbNetDev.Get(3));
     }
 
     // start server and client apps

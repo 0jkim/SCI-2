@@ -26,7 +26,7 @@ A related file is the RELEASE_NOTES.md file in the top level directory.
 This file complements RELEASE_NOTES.md by focusing on API and behavioral
 changes that users upgrading from one release to the next may encounter.
 RELEASE_NOTES attempts to comprehensively list all of the changes
-that were made.  There is generally some overlap in the information
+that were made. There is generally some overlap in the information
 contained in RELEASE_NOTES.md and this file.
 
 The goal is that users who encounter a problem when trying to use older
@@ -47,6 +47,57 @@ our best but can guarantee that there will be things that fall through
 the cracks, unfortunately.  If you, as a user, can suggest improvements
 to this file based on your experience, please contribute a patch or drop
 us a note on ns-developers mailing list.
+
+---
+
+## Changes from NR-v3.2 to v3.3
+
+### New API:
+
+- A new class ``NrFhControl`` is added that implements the Fronthaul Control that
+  allows the simulation of a limited-capacity fronthaul (FH) link. This class interacts
+  with the PHY and MAC layers through the ``NrFhPhySapProvider``, ``NrFhPhySapUser``,
+  ``NrFhSchedSapProvider`` and ``NrFhSchedSapUser`` SAPs.
+
+- Added ``BwpManagerAlgorithm::GetAlgorithm()`` to retrieve the ``BwpManagerAlgorithm``.
+
+### Changes to existing API:
+
+- The ``NrHelper`` is extended to include the function ``EnableFhControl`` to enable
+  the Fronthaul Control. Moreover, attributes of the Fronthaul Control can be set
+  through the ``SetFhControlAttribute`` function.
+
+- The ``NrMacSchedulerNs3``, ``NrMacSchedulerOfdma``, ``NrMacSchedulerHarqRR`` and
+  ``NrGnbPhy`` are extended to support various Fronthaul Control mechanisms for
+  discarding data or limiting allocations.
+
+### Changed behavior:
+
+- (37dea723) In the OFDMA access mode, allocate, at least, the number of RBs necessary
+  to transmit the minimum TBS.
+
+- (2dd513a7) Delay the shuffling of the SRS offset until the stream assignment.
+
+---
+
+## Changes from NR-v3.1 to v3.2
+
+### New API:
+
+
+### Changes to existing API:
+- Removed the ``NrHelper::HarqEnabled`` flag because it was considered a misleading
+feature. Unlike the feature available in the ns-3 LTE module, which completely
+disables/enables HARQ logic, this feature solely disables HARQ feedback.
+Currently, the only similar option available in the NR module is
+``ns3::NrMacSchedulerNs3::EnableHarqReTx`` which enables/disables HARQ retransmissions.
+- All previously ``Lte`` prefixed configuration paths, classes and functions should now be use the ``Nr``
+prefix. All configuration paths, classes and functions containing ``Enb`` should now use ``Gnb``.
+  - Before: ``Config::Connect("/NodeList/*/DeviceList/*/LteEnbRrc/NewUeContext", MakeBoundCallback(&NrBearerStatsConnector::NotifyNewUeContextEnb, this));``
+  - After: ``Config::Connect("/NodeList/*/DeviceList/*/NrGnbRrc/NewUeContext", MakeBoundCallback(&NrBearerStatsConnector::NotifyNewUeContextGnb, this));``
+
+### Changed behavior:
+- ``IMSI``s are now aligned with ``NodeId``, instead of using an independent counter.
 
 ---
 

@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2018 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -74,9 +72,9 @@ SystemSchedulerTest::DoRun()
     uint32_t maxPackets = 400;
     DataRate udpRate = DataRate("320kbps"); // 400 packets of 800 bits
 
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
-    Config::SetDefault("ns3::LteRlcUm::ReorderingTimer", TimeValue(Seconds(1)));
-    Config::SetDefault("ns3::EpsBearer::Release", UintegerValue(15));
+    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefault("ns3::NrRlcUm::ReorderingTimer", TimeValue(Seconds(1)));
+    Config::SetDefault("ns3::NrEpsBearer::Release", UintegerValue(15));
 
     Config::SetDefault(
         "ns3::NrUePhy::EnableUplinkPowerControl",
@@ -146,7 +144,7 @@ SystemSchedulerTest::DoRun()
     mobility.Install(ueNodes);
 
     // setup the mmWave simulation
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
 
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     idealBeamformingHelper->SetAttribute("BeamformingMethod",
@@ -187,7 +185,7 @@ SystemSchedulerTest::DoRun()
     nrHelper->SetSchedulerAttribute("StartingMcsDl", UintegerValue(28));
     nrHelper->SetSchedulerAttribute("StartingMcsUl", UintegerValue(28));
 
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     /*
      * Spectrum division. We create two operational bands, each of them containing
@@ -251,7 +249,7 @@ SystemSchedulerTest::DoRun()
 
     // create the internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -275,18 +273,18 @@ SystemSchedulerTest::DoRun()
     remoteHostStaticRouting->AddNetworkRouteTo(Ipv4Address("7.0.0.0"), Ipv4Mask("255.0.0.0"), 1);
     internet.Install(ueNodes);
     Ipv4InterfaceContainer ueIpIface;
-    ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDevs));
+    ueIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDevs));
 
     // Set the default gateway for the UEs
     for (uint32_t j = 0; j < ueNodes.GetN(); ++j)
     {
         Ptr<Ipv4StaticRouting> ueStaticRouting =
             ipv4RoutingHelper.GetStaticRouting(ueNodes.Get(j)->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
     }
 
-    // attach UEs to the closest eNB
-    nrHelper->AttachToClosestEnb(ueNetDevs, gNbNetDevs);
+    // attach UEs to the closest gNB
+    nrHelper->AttachToClosestGnb(ueNetDevs, gNbNetDevs);
 
     // assign IP address to UEs, and install UDP downlink applications
     uint16_t dlPort = 1234;
@@ -316,14 +314,14 @@ SystemSchedulerTest::DoRun()
                                          // short time, how much traffic can handle each BWP
             clientAppsUl.Add(ulClient.Install(ueNodes.Get(j)));
 
-            Ptr<EpcTft> tft = Create<EpcTft>();
-            EpcTft::PacketFilter ulpf;
+            Ptr<NrEpcTft> tft = Create<NrEpcTft>();
+            NrEpcTft::PacketFilter ulpf;
             ulpf.remotePortStart = ulPort;
             ulpf.remotePortEnd = ulPort;
-            ulpf.direction = EpcTft::UPLINK;
+            ulpf.direction = NrEpcTft::UPLINK;
             tft->Add(ulpf);
 
-            EpsBearer bearer(EpsBearer::NGBR_LOW_LAT_EMBB);
+            NrEpsBearer bearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
             nrHelper->ActivateDedicatedEpsBearer(ueNetDevs.Get(j), bearer, tft);
         }
 
@@ -350,14 +348,14 @@ SystemSchedulerTest::DoRun()
                                          // short time, how much traffic can handle each BWP
             clientAppsDl.Add(dlClient.Install(remoteHost));
 
-            Ptr<EpcTft> tft = Create<EpcTft>();
-            EpcTft::PacketFilter dlpf;
+            Ptr<NrEpcTft> tft = Create<NrEpcTft>();
+            NrEpcTft::PacketFilter dlpf;
             dlpf.localPortStart = dlPort;
             dlpf.localPortEnd = dlPort;
-            dlpf.direction = EpcTft::DOWNLINK;
+            dlpf.direction = NrEpcTft::DOWNLINK;
             tft->Add(dlpf);
 
-            EpsBearer bearer(EpsBearer::NGBR_LOW_LAT_EMBB);
+            NrEpsBearer bearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
             nrHelper->ActivateDedicatedEpsBearer(ueNetDevs.Get(j), bearer, tft);
         }
         // start UDP server and client apps

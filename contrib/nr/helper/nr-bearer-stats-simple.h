@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2022 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -7,9 +5,10 @@
 #ifndef NR_RADIO_BEARER_STATS_SIMPLE_H_
 #define NR_RADIO_BEARER_STATS_SIMPLE_H_
 
+#include "nr-stats-calculator.h"
+
 #include "ns3/basic-data-calculators.h"
-#include "ns3/lte-common.h"
-#include "ns3/lte-stats-calculator.h"
+#include "ns3/nr-common.h"
 #include "ns3/object.h"
 #include "ns3/uinteger.h"
 
@@ -37,7 +36,7 @@ class NrBearerStatsBase : public Object
     void DoDispose() override;
     /**
      * Notifies the stats calculator that an UL transmission has occurred.
-     * @param cellId CellId of the attached Enb
+     * @param cellId CellId of the attached Gnb
      * @param imsi IMSI of the UE who transmitted the PDU
      * @param rnti C-RNTI of the UE who transmitted the PDU
      * @param lcid LCID through which the PDU has been transmitted
@@ -50,7 +49,7 @@ class NrBearerStatsBase : public Object
                          uint32_t packetSize) = 0;
     /**
      * Notifies the stats calculator that an UL reception has occurred.
-     * @param cellId CellId of the attached Enb
+     * @param cellId CellId of the attached Gnb
      * @param imsi IMSI of the UE who transmitted the PDU
      * @param rnti C-RNTI of the UE who transmitted the PDU
      * @param lcid LCID through which the PDU has been transmitted
@@ -65,7 +64,7 @@ class NrBearerStatsBase : public Object
                          uint64_t delay) = 0;
     /**
      * Notifies the stats calculator that an DL transmission has occurred.
-     * @param cellId CellId of the attached Enb
+     * @param cellId CellId of the attached Gnb
      * @param imsi IMSI of the UE who is receiving the PDU
      * @param rnti C-RNTI of the UE who is receiving the PDU
      * @param lcid LCID through which the PDU has been transmitted
@@ -78,7 +77,7 @@ class NrBearerStatsBase : public Object
                          uint32_t packetSize) = 0;
     /**
      * Notifies the stats calculator that an downlink reception has occurred.
-     * @param cellId CellId of the attached Enb
+     * @param cellId CellId of the attached Gnb
      * @param imsi IMSI of the UE who received the PDU
      * @param rnti C-RNTI of the UE who received the PDU
      * @param lcid LCID through which the PDU has been transmitted
@@ -156,7 +155,7 @@ class NrBearerStatsSimple : public NrBearerStatsBase
 
     /**
      * Notifies the stats calculator that an uplink transmission has occurred.
-     * @param cellId CellId of the attached Enb
+     * @param cellId CellId of the attached Gnb
      * @param imsi IMSI of the UE who transmitted the PDU
      * @param rnti C-RNTI of the UE who transmitted the PDU
      * @param lcid LCID through which the PDU has been transmitted
@@ -170,7 +169,7 @@ class NrBearerStatsSimple : public NrBearerStatsBase
 
     /**
      * Notifies the stats calculator that an uplink reception has occurred.
-     * @param cellId CellId of the attached Enb
+     * @param cellId CellId of the attached Gnb
      * @param imsi IMSI of the UE who received the PDU
      * @param rnti C-RNTI of the UE who received the PDU
      * @param lcid LCID through which the PDU has been received
@@ -186,7 +185,7 @@ class NrBearerStatsSimple : public NrBearerStatsBase
 
     /**
      * Notifies the stats calculator that an downlink transmission has occurred.
-     * @param cellId CellId of the attached Enb
+     * @param cellId CellId of the attached Gnb
      * @param imsi IMSI of the UE who is receiving the PDU
      * @param rnti C-RNTI of the UE who is receiving the PDU
      * @param lcid LCID through which the PDU has been transmitted
@@ -200,7 +199,7 @@ class NrBearerStatsSimple : public NrBearerStatsBase
 
     /**
      * Notifies the stats calculator that an downlink reception has occurred.
-     * @param cellId CellId of the attached Enb
+     * @param cellId CellId of the attached Gnb
      * @param imsi IMSI of the UE who received the PDU
      * @param rnti C-RNTI of the UE who received the PDU
      * @param lcid LCID through which the PDU has been transmitted

@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -55,6 +53,22 @@ class NrMacSchedulerHarqRr
      */
     void InstallGetBwInRBG(const std::function<uint16_t()>& fn);
 
+    /**
+     * \brief Install a function to retrieve the FH Control
+     *        Method (when enabled)
+     * \param fn
+     */
+    void InstallGetFhControlMethodFn(const std::function<uint8_t()>& fn);
+
+    /**
+     * \brief Install a function to retrieve whether the allocation
+     *        fits when FH Control is enabled
+     * \param fn the function
+     */
+    void InstallDoesFhAllocationFitFn(
+        const std::function<bool(uint16_t bwpId, uint32_t mcs, uint32_t nRegs, uint8_t dlRank)>&
+            fn);
+
     virtual uint8_t ScheduleDlHarq(
         NrMacSchedulerNs3::PointInFTPlane* startingPoint,
         uint8_t symAvail,
@@ -96,10 +110,25 @@ class NrMacSchedulerHarqRr
      */
     uint16_t GetBandwidthInRbg() const;
 
+    /**
+     * \brief Get the FH Control method.
+     * \return the FH Control Method (uint8_t)
+     */
+    uint8_t GetFromSchedFhControlMethod() const;
+
+    /**
+     * \brief Get from sched if the allocation fits when FH Control is enabled
+     * \return whether the allocation fits
+     */
+    bool GetDoesFhAllocationFit(uint16_t bwpId, uint32_t mcs, uint32_t nRegs, uint8_t dlRank) const;
+
   private:
-    std::function<uint16_t()> m_getBwpId;   //!< Function to retrieve bwp id
-    std::function<uint16_t()> m_getCellId;  //!< Function to retrieve cell id
-    std::function<uint16_t()> m_getBwInRbg; //!< Function to retrieve bw in rbg
+    std::function<uint16_t()> m_getBwpId;          //!< Function to retrieve bwp id
+    std::function<uint16_t()> m_getCellId;         //!< Function to retrieve cell id
+    std::function<uint16_t()> m_getBwInRbg;        //!< Function to retrieve bw in rbg
+    std::function<uint8_t()> m_getFhControlMethod; //!< Function to retrieve the FH Control Method
+    std::function<bool(uint16_t bwpId, uint32_t mcs, uint32_t nRegs, uint8_t dlRank)>
+        m_getDoesAllocationFit; //!< Function to retrieve if allocation fits
 };
 
 } // namespace ns3

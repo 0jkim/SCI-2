@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2022 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -134,7 +132,7 @@ class NrMacSchedulerUeInfoQos : public NrMacSchedulerUeInfo
 
     /**
      * \brief comparison function object (i.e. an object that satisfies the
-     * requirements of Compare) which returns ​true if the first argument is less
+     * requirements of Compare) which returns true if the first argument is less
      * than (i.e. is ordered before) the second.
      * \param lue Left UE
      * \param rue Right UE
@@ -156,7 +154,7 @@ class NrMacSchedulerUeInfoQos : public NrMacSchedulerUeInfo
 
     /**
      * \brief comparison function object (i.e. an object that satisfies the
-     * requirements of Compare) which returns ​true if the first argument is less
+     * requirements of Compare) which returns true if the first argument is less
      * than (i.e. is ordered before) the second.
      * \param lue Left UE
      * \f$ qosMetric_{i} = P * std::pow(potentialTPut_{i}, alpha) / std::max (1E-9, m_avgTput_{i})
@@ -179,7 +177,7 @@ class NrMacSchedulerUeInfoQos : public NrMacSchedulerUeInfo
                 std::unique_ptr<NrMacSchedulerLC>& LCPtr = ueLcg.second->GetLC(lcId);
                 double delayBudgetFactor = 1.0;
 
-                if (LCPtr->m_resourceType == LogicalChannelConfigListElement_s::QBT_DGBR)
+                if (LCPtr->m_resourceType == nr::LogicalChannelConfigListElement_s::QBT_DGBR)
                 {
                     delayBudgetFactor =
                         CalculateDelayBudgetFactor(LCPtr->m_delayBudget.GetMilliSeconds(),
@@ -217,7 +215,7 @@ class NrMacSchedulerUeInfoQos : public NrMacSchedulerUeInfo
 
     /**
      * \brief comparison function object (i.e. an object that satisfies the
-     * requirements of Compare) which returns ​true if the first argument is less
+     * requirements of Compare) which returns true if the first argument is less
      * than (i.e. is ordered before) the second.
      * \param lue Left UE
      * \param rue Right UE

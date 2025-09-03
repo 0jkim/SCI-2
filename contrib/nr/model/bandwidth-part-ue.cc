@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2017 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -25,7 +23,7 @@ TypeId
 BandwidthPartUe::GetTypeId()
 {
     static TypeId tid = TypeId("ns3::BandwidthPartUe")
-                            .SetParent<ComponentCarrier>()
+                            .SetParent<NrComponentCarrier>()
                             .AddConstructor<BandwidthPartUe>()
                             .AddAttribute("NrUePhy",
                                           "The PHY associated to this BandwidthPartUe",
@@ -41,7 +39,7 @@ BandwidthPartUe::GetTypeId()
 }
 
 BandwidthPartUe::BandwidthPartUe()
-    : ComponentCarrier()
+    : NrComponentCarrier()
 {
     NS_LOG_FUNCTION(this);
     m_phy = nullptr;

@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2022 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -61,9 +59,9 @@ SystemSchedulerTestQos::DoRun()
     Time udpAppStopTimeUl = MilliSeconds(1500); // Let's give 1 to end the tx
     uint16_t gNbNum = 1;
 
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
-    Config::SetDefault("ns3::LteRlcUm::ReorderingTimer", TimeValue(Seconds(1)));
-    Config::SetDefault("ns3::EpsBearer::Release", UintegerValue(15));
+    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefault("ns3::NrRlcUm::ReorderingTimer", TimeValue(Seconds(1)));
+    Config::SetDefault("ns3::NrEpsBearer::Release", UintegerValue(15));
 
     // create base stations and mobile terminals
     int64_t randomStream = 1;
@@ -117,16 +115,16 @@ SystemSchedulerTestQos::DoRun()
     }
 
     // setup the nr simulation
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
 
     // Put the pointers inside nrHelper
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     nrHelper->SetPathlossAttribute("ShadowingEnabled", BooleanValue(false));
-    epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    nrEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
     Config::SetDefault("ns3::ThreeGppChannelModel::UpdatePeriod", TimeValue(MilliSeconds(0)));
     nrHelper->SetChannelConditionModelAttribute("UpdatePeriod", TimeValue(MilliSeconds(0)));
 
@@ -230,7 +228,7 @@ SystemSchedulerTestQos::DoRun()
 
     // create the internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     Ptr<Node> remoteHostLowLat;
     Ptr<Node> remoteHostVoice;
@@ -309,20 +307,20 @@ SystemSchedulerTestQos::DoRun()
 
     Ipv4InterfaceContainer ueLowLatIpIface;
     Ipv4InterfaceContainer ueVoiceIpIface;
-    ueLowLatIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueLowLatNetDev));
-    ueVoiceIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueVoiceNetDev));
+    ueLowLatIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueLowLatNetDev));
+    ueVoiceIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueVoiceNetDev));
 
     // Set the default gateway for the UEs
     for (uint32_t j = 0; j < gridScenario.GetUserTerminals().GetN(); ++j)
     {
         Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting(
             gridScenario.GetUserTerminals().Get(j)->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
     }
 
     // attach UEs to the closest gNB
-    nrHelper->AttachToClosestEnb(ueLowLatNetDev, gNbNetDevs);
-    nrHelper->AttachToClosestEnb(ueVoiceNetDev, gNbNetDevs);
+    nrHelper->AttachToClosestGnb(ueLowLatNetDev, gNbNetDevs);
+    nrHelper->AttachToClosestGnb(ueVoiceNetDev, gNbNetDevs);
 
     /*
      * Traffic part. Install two kind of traffic: low-latency and voice, each
@@ -356,14 +354,14 @@ SystemSchedulerTestQos::DoRun()
         ulClientLowlat.SetAttribute("PacketSize", UintegerValue(udpPacketSizeULL));
         ulClientLowlat.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambdaULL)));
 
-        Ptr<EpcTft> ulLowLatTft = Create<EpcTft>();
-        EpcTft::PacketFilter ulpfLowLat;
+        Ptr<NrEpcTft> ulLowLatTft = Create<NrEpcTft>();
+        NrEpcTft::PacketFilter ulpfLowLat;
         ulpfLowLat.remotePortStart = ulPortLowLat;
         ulpfLowLat.remotePortEnd = ulPortLowLat;
-        ulpfLowLat.direction = EpcTft::UPLINK;
+        ulpfLowLat.direction = NrEpcTft::UPLINK;
         ulLowLatTft->Add(ulpfLowLat);
 
-        EpsBearer bearerLowLat(EpsBearer::NGBR_LOW_LAT_EMBB);
+        NrEpsBearer bearerLowLat(NrEpsBearer::NGBR_LOW_LAT_EMBB);
 
         UdpClientHelper ulClientVoice;
         ulClientVoice.SetAttribute("RemotePort", UintegerValue(ulPortVoice));
@@ -371,14 +369,14 @@ SystemSchedulerTestQos::DoRun()
         ulClientVoice.SetAttribute("PacketSize", UintegerValue(udpPacketSizeBe));
         ulClientVoice.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambdaBe)));
 
-        Ptr<EpcTft> ulVoiceTft = Create<EpcTft>();
-        EpcTft::PacketFilter ulpfVoice;
+        Ptr<NrEpcTft> ulVoiceTft = Create<NrEpcTft>();
+        NrEpcTft::PacketFilter ulpfVoice;
         ulpfVoice.remotePortStart = ulPortVoice;
         ulpfVoice.remotePortEnd = ulPortVoice;
-        ulpfVoice.direction = EpcTft::UPLINK;
+        ulpfVoice.direction = NrEpcTft::UPLINK;
         ulVoiceTft->Add(ulpfVoice);
 
-        EpsBearer bearerVoice(EpsBearer::GBR_CONV_VOICE);
+        NrEpsBearer bearerVoice(NrEpsBearer::GBR_CONV_VOICE);
 
         // configure here UDP traffic flows
         for (uint32_t j = 0; j < ueLowLatContainer.GetN(); ++j)
@@ -415,23 +413,23 @@ SystemSchedulerTestQos::DoRun()
         serverAppsDlLowLat = (dlPacketSinkLowLat.Install(ueLowLatContainer));
         serverAppsDlVoice = (dlPacketSinkVoice.Install(ueVoiceContainer));
 
-        Ptr<EpcTft> dlLowLatTft = Create<EpcTft>();
-        EpcTft::PacketFilter dlpfLowLat;
+        Ptr<NrEpcTft> dlLowLatTft = Create<NrEpcTft>();
+        NrEpcTft::PacketFilter dlpfLowLat;
         dlpfLowLat.localPortStart = dlPortLowLat;
         dlpfLowLat.localPortEnd = dlPortLowLat;
-        dlpfLowLat.direction = EpcTft::DOWNLINK;
+        dlpfLowLat.direction = NrEpcTft::DOWNLINK;
         dlLowLatTft->Add(dlpfLowLat);
 
-        EpsBearer bearerLowlat(EpsBearer::NGBR_LOW_LAT_EMBB);
+        NrEpsBearer bearerLowlat(NrEpsBearer::NGBR_LOW_LAT_EMBB);
 
-        Ptr<EpcTft> dlVoiceTft = Create<EpcTft>();
-        EpcTft::PacketFilter dlpfVoice;
+        Ptr<NrEpcTft> dlVoiceTft = Create<NrEpcTft>();
+        NrEpcTft::PacketFilter dlpfVoice;
         dlpfVoice.localPortStart = dlPortVoice;
         dlpfVoice.localPortEnd = dlPortVoice;
-        dlpfVoice.direction = EpcTft::DOWNLINK;
+        dlpfVoice.direction = NrEpcTft::DOWNLINK;
         dlVoiceTft->Add(dlpfVoice);
 
-        EpsBearer bearerVoice(EpsBearer::GBR_CONV_VOICE);
+        NrEpsBearer bearerVoice(NrEpsBearer::GBR_CONV_VOICE);
 
         for (uint32_t j = 0; j < ueLowLatContainer.GetN(); ++j)
         {

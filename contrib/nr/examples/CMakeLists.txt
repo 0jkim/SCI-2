@@ -18,14 +18,12 @@ set(base_examples
     cttc-channel-randomness
     rem-example
     rem-beam-example
-    cttc-fh-compression
     cttc-nr-notching
     cttc-nr-traffic-ngmn-mixed
     cttc-nr-traffic-3gpp-xr
     traffic-generator-example
     cttc-nr-simple-qos-sched
     cttc-nr-multi-flow-qos-sched
-    cttc-nr-mimo-demo
 )
 foreach(
   example
@@ -38,6 +36,31 @@ foreach(
                       ${libflow-monitor}
   )
 endforeach()
+
+build_lib_example(
+  NAME cttc-fh-compression
+  SOURCE_FILES cttc-fh-compression.cc
+  LIBRARIES_TO_LINK ${libnr}
+                    ${liblte}
+)
+
+if(${ENABLE_EIGEN})
+  set(eigen_dependent_examples
+      cttc-nr-mimo-demo
+      cttc-nr-fh-xr
+  )
+  foreach(
+    example
+    ${eigen_dependent_examples}
+  )
+    build_lib_example(
+      NAME ${example}
+      SOURCE_FILES ${example}.cc
+      LIBRARIES_TO_LINK ${libnr}
+                        ${libflow-monitor}
+    )
+  endforeach()
+endif()
 
 if(NOT
    ${ENABLE_SQLITE}
@@ -73,6 +96,7 @@ else()
         ${libnr}
         ${libflow-monitor}
         ${libstats}
+        ${liblte}
     )
   endforeach()
 
@@ -95,6 +119,7 @@ else()
       ${libnr}
       ${libflow-monitor}
       ${libstats}
+      ${liblte}
   )
 
   set(example

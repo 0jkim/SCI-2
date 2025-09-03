@@ -1,12 +1,11 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2023 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
 
 #include "nr-mac-scheduler-lc-qos.h"
 
-#include "ns3/ff-mac-common.h"
+#include "nr-phy-mac-common.h"
+
 #include "ns3/log.h"
 
 #include <algorithm>
@@ -76,9 +75,9 @@ NrMacSchedulerLcQos::AssignBytesToDlLC(const std::unordered_map<uint8_t, LCGPtr>
         for (const auto lcId : ueActiveLCs)
         {
             if ((GetLCG(lcg)->GetLC(lcId)->m_resourceType ==
-                     LogicalChannelConfigListElement_s::QBT_DGBR ||
+                     nr::LogicalChannelConfigListElement_s::QBT_DGBR ||
                  GetLCG(lcg)->GetLC(lcId)->m_resourceType ==
-                     LogicalChannelConfigListElement_s::QBT_GBR) &&
+                     nr::LogicalChannelConfigListElement_s::QBT_GBR) &&
                 GetLCG(lcg)->GetLC(lcId)->m_eRabGuaranteedBitrateDl != UINT64_MAX)
             {
                 gbrActiveLCs.emplace_back(GetLCGID(lcg), lcId);

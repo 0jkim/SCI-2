@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -38,7 +36,7 @@ class NrMacSchedulerUeInfoMR : public NrMacSchedulerUeInfo
 
     /**
      * \brief comparison function object (i.e. an object that satisfies the
-     * requirements of Compare) which returns ​true if the first argument is less
+     * requirements of Compare) which returns true if the first argument is less
      * than (i.e. is ordered before) the second.
      * \param lue Left UE
      * \param rue Right UE
@@ -60,7 +58,7 @@ class NrMacSchedulerUeInfoMR : public NrMacSchedulerUeInfo
 
     /**
      * \brief comparison function object (i.e. an object that satisfies the
-     * requirements of Compare) which returns ​true if the first argument is less
+     * requirements of Compare) which returns true if the first argument is less
      * than (i.e. is ordered before) the second.
      * \param lue Left UE
      * \param rue Right UE

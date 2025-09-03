@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2020 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -763,7 +761,7 @@ CttcRealisticBeamforming::RunSimulation()
 
     // Create NR helpers: nr helper, epc helper, and beamforming helper
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
 
     // Initialize beamforming
     Ptr<BeamformingHelperBase> beamformingHelper;
@@ -789,7 +787,7 @@ CttcRealisticBeamforming::RunSimulation()
         NS_ABORT_MSG("Unknown beamforming type.");
     }
     nrHelper->SetBeamformingHelper(beamformingHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     Config::SetDefault("ns3::NrUePhy::EnableUplinkPowerControl", BooleanValue(false));
 
@@ -878,7 +876,7 @@ CttcRealisticBeamforming::RunSimulation()
 
     // Create the internet and install the IP stack on the UEs, get SGW/PGW and create a single
     // RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -901,18 +899,18 @@ CttcRealisticBeamforming::RunSimulation()
     remoteHostStaticRouting->AddNetworkRouteTo(Ipv4Address("7.0.0.0"), Ipv4Mask("255.0.0.0"), 1);
     internet.Install(ueNode);
     Ipv4InterfaceContainer ueIpIface;
-    ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
+    ueIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
 
     // Set the default gateway for the UE
     for (uint32_t j = 0; j < ueNode.GetN(); ++j)
     {
         Ptr<Ipv4StaticRouting> ueStaticRouting =
             ipv4RoutingHelper.GetStaticRouting(ueNode.Get(j)->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
     }
 
     // Attach UE to gNB
-    nrHelper->AttachToEnb(ueNetDev.Get(0), gNbDev.Get(0));
+    nrHelper->AttachToGnb(ueNetDev.Get(0), gNbDev.Get(0));
 
     // Install UDP downlink applications
     ApplicationContainer clientAppDl;

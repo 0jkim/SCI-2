@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -197,12 +195,12 @@ NrMibMessage::NrMibMessage()
 }
 
 void
-NrMibMessage::SetMib(LteRrcSap::MasterInformationBlock mib)
+NrMibMessage::SetMib(NrRrcSap::MasterInformationBlock mib)
 {
     m_mib = mib;
 }
 
-LteRrcSap::MasterInformationBlock
+NrRrcSap::MasterInformationBlock
 NrMibMessage::GetMib() const
 {
     return m_mib;
@@ -216,12 +214,12 @@ NrSib1Message::NrSib1Message()
 }
 
 void
-NrSib1Message::SetSib1(LteRrcSap::SystemInformationBlockType1 sib1)
+NrSib1Message::SetSib1(NrRrcSap::SystemInformationBlockType1 sib1)
 {
     m_sib1 = sib1;
 }
 
-LteRrcSap::SystemInformationBlockType1
+NrRrcSap::SystemInformationBlockType1
 NrSib1Message::GetSib1() const
 {
     return m_sib1;

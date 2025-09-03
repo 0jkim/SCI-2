@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -217,6 +215,8 @@ class NrMacSchedulerUeInfo
      */
     virtual void ResetUlMetric();
 
+    uint32_t GetTotalDlBuffer() const;
+
     /**
      * \brief Received CQI information
      */
@@ -236,6 +236,8 @@ class NrMacSchedulerUeInfo
         uint32_t m_timer{0};        //!< Timer (in slot number).
                                     //!< When the timer is 0, the value is discarded
     };
+
+    void ReleaseLC(uint8_t lcid);
 
     uint16_t m_rnti{0}; //!< RNTI of the UE
     BeamId m_beamId;    //!< Beam ID of the UE (kept updated as much as possible by MAC)

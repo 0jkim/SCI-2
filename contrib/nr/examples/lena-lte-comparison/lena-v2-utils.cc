@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2020 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -148,7 +146,7 @@ LenaV2Utils::SetLenaV2SimulatorParameters(const double sector0AngleRad,
                                           const NodeContainer& ueSector1Container,
                                           const NodeContainer& ueSector2Container,
                                           const NodeContainer& ueSector3Container,
-                                          const Ptr<PointToPointEpcHelper>& baseEpcHelper,
+                                          const Ptr<NrPointToPointEpcHelper>& baseEpcHelper,
                                           Ptr<NrHelper>& nrHelper,
                                           NetDeviceContainer& gnbSector1NetDev,
                                           NetDeviceContainer& gnbSector2NetDev,
@@ -231,8 +229,8 @@ LenaV2Utils::SetLenaV2SimulatorParameters(const double sector0AngleRad,
         nrHelper->SetBeamformingHelper(idealBeamformingHelper);
     }
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = DynamicCast<NrPointToPointEpcHelper>(baseEpcHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = DynamicCast<NrPointToPointEpcHelper>(baseEpcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     double txPowerBs = 0.0;
 
@@ -376,6 +374,10 @@ LenaV2Utils::SetLenaV2SimulatorParameters(const double sector0AngleRad,
     band1.m_bandId = 1;
     band2.m_bandId = 2;
 
+    if (operationMode == "FDD")
+    {
+        Config::SetDefault("ns3::NrUeNetDevice::PrimaryUlIndex", UintegerValue(1));
+    }
     if (freqScenario == 0) // NON_OVERLAPPING
     {
         uint8_t numBwp;
@@ -613,7 +615,7 @@ LenaV2Utils::SetLenaV2SimulatorParameters(const double sector0AngleRad,
     nrHelper->SetSchedulerAttribute("DlCtrlSymbols", UintegerValue(1));
 
     // Core latency
-    epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    nrEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
 
     // Antennas for all the UEs
     nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(1));
@@ -697,7 +699,7 @@ LenaV2Utils::SetLenaV2SimulatorParameters(const double sector0AngleRad,
      * to the NetDevices, which contains all the NR stack:
      */
 
-    //  NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice (gridScenario.GetBaseStations (),
+    //  NetDeviceContainer gnbNetDev = nrHelper->InstallGnbDevice (gridScenario.GetBaseStations (),
     //  allBwps);
     gnbSector1NetDev = nrHelper->InstallGnbDevice(gnbSector1Container, sector1Bwps);
     NetDeviceContainer gnbNetDevs(gnbSector1NetDev);

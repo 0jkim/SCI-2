@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -12,7 +10,7 @@
 #include <memory>
 
 /**
- * \file nr-lte-cc-bwp-configuration.cc
+ * \file nr-cc-bwp-configuration.cc
  * \ingroup test
  *
  * \brief The test aims at proving that the creation of operation bands, component carriers
@@ -36,7 +34,7 @@ class CcBwpTestCase : public TestCase
     };
 
     /**
-     * \brief Create LtePatternTestCase
+     * \brief Create NrPatternTestCase
      * \param name Name of the test
      */
     CcBwpTestCase(const std::string& name)
@@ -127,19 +125,19 @@ class CcBwpTestCase : public TestCase
 };
 
 /**
- * \brief The NrLteCcBwpTestSuite class
+ * \brief The NrCcBwpTestSuite class
  */
-class NrLteCcBwpTestSuite : public TestSuite
+class NrCcBwpTestSuite : public TestSuite
 {
   public:
-    NrLteCcBwpTestSuite()
-        : TestSuite("nr-lte-cc-bwp-configuration", Type::UNIT)
+    NrCcBwpTestSuite()
+        : TestSuite("nr-cc-bwp-configuration", Type::UNIT)
     {
         AddTestCase(new CcBwpTestCase("CC and BWP test"), Duration::QUICK);
     }
 };
 
-static NrLteCcBwpTestSuite nrLteCcBwpTestSuite; //!< CC BWP test suite
+static NrCcBwpTestSuite nrNrCcBwpTestSuite; //!< CC BWP test suite
 
 void
 CcBwpTestCase::DoRun()

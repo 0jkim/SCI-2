@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -31,8 +29,10 @@
 
 #include <algorithm>
 #include <functional>
+#include <random>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 namespace ns3
 {
@@ -46,7 +46,8 @@ NrGnbPhy::NrGnbPhy()
       m_n1Delay(4)
 {
     NS_LOG_FUNCTION(this);
-    m_enbCphySapProvider = new MemberLteEnbCphySapProvider<NrGnbPhy>(this);
+    m_gnbCphySapProvider = new MemberNrGnbCphySapProvider<NrGnbPhy>(this);
+    m_nrFhPhySapUser = new MemberNrFhPhySapUser<NrGnbPhy>(this);
 }
 
 NrGnbPhy::~NrGnbPhy()
@@ -57,7 +58,10 @@ void
 NrGnbPhy::DoDispose()
 {
     NS_LOG_FUNCTION(this);
-    delete m_enbCphySapProvider;
+    delete m_gnbCphySapProvider;
+    delete m_nrFhPhySapUser;
+    m_nrFhPhySapUser = nullptr;
+    m_nrFhPhySapProvider = nullptr;
     NrPhy::DoDispose();
 }
 
@@ -116,11 +120,11 @@ NrGnbPhy::GetTypeId()
                             MakeTraceSourceAccessor(&NrGnbPhy::m_ulSinrTrace),
                             "ns3::UlSinr::TracedCallback")
             .AddTraceSource("GnbPhyRxedCtrlMsgsTrace",
-                            "Enb PHY Rxed Control Messages Traces.",
+                            "Gnb PHY Rxed Control Messages Traces.",
                             MakeTraceSourceAccessor(&NrGnbPhy::m_phyRxedCtrlMsgsTrace),
                             "ns3::NrPhyRxTrace::RxedGnbPhyCtrlMsgsTracedCallback")
             .AddTraceSource("GnbPhyTxedCtrlMsgsTrace",
-                            "Enb PHY Txed Control Messages Traces.",
+                            "Gnb PHY Txed Control Messages Traces.",
                             MakeTraceSourceAccessor(&NrGnbPhy::m_phyTxedCtrlMsgsTrace),
                             "ns3::NrPhyRxTrace::TxedGnbPhyCtrlMsgsTracedCallback")
             .AddAttribute("N0Delay",
@@ -387,12 +391,12 @@ NrGnbPhy::GenerateStructuresFromPattern(const std::vector<LteNrTddSlotType>& pat
 
     for (auto& list : (*generateUl))
     {
-        std::sort(list.second.begin(), list.second.end());
+        std::stable_sort(list.second.begin(), list.second.end());
     }
 
     for (auto& list : (*generateDl))
     {
-        std::sort(list.second.begin(), list.second.end());
+        std::stable_sort(list.second.begin(), list.second.end());
     }
 }
 
@@ -504,17 +508,29 @@ NrGnbPhy::StartEventLoop(uint16_t frame, uint8_t subframe, uint16_t slot)
 }
 
 void
-NrGnbPhy::SetEnbCphySapUser(LteEnbCphySapUser* s)
+NrGnbPhy::SetGnbCphySapUser(NrGnbCphySapUser* s)
 {
     NS_LOG_FUNCTION(this);
-    m_enbCphySapUser = s;
+    m_gnbCphySapUser = s;
 }
 
-LteEnbCphySapProvider*
-NrGnbPhy::GetEnbCphySapProvider()
+NrGnbCphySapProvider*
+NrGnbPhy::GetGnbCphySapProvider()
 {
     NS_LOG_FUNCTION(this);
-    return m_enbCphySapProvider;
+    return m_gnbCphySapProvider;
+}
+
+void
+NrGnbPhy::SetNrFhPhySapProvider(NrFhPhySapProvider* s)
+{
+    m_nrFhPhySapProvider = s;
+}
+
+NrFhPhySapUser*
+NrGnbPhy::GetNrFhPhySapUser()
+{
+    return m_nrFhPhySapUser;
 }
 
 uint32_t
@@ -554,6 +570,14 @@ NrGnbPhy::SetN2Delay(uint32_t delay)
 {
     m_n2Delay = delay;
     SetTddPattern(m_tddPattern); // Update the generate/send structures
+}
+
+bool
+NrGnbPhy::DoesFhAllocationFit(uint16_t bwpId, uint32_t mcs, uint32_t nRegs, uint8_t dlRank) const
+{
+    NS_LOG_FUNCTION(this);
+    NS_ASSERT(m_nrFhPhySapProvider);
+    return m_nrFhPhySapProvider->DoesAllocationFit(bwpId, mcs, nRegs, dlRank);
 }
 
 BeamId
@@ -635,7 +659,7 @@ void
 NrGnbPhy::QueueMib()
 {
     NS_LOG_FUNCTION(this);
-    LteRrcSap::MasterInformationBlock mib;
+    NrRrcSap::MasterInformationBlock mib;
     mib.dlBandwidth = GetChannelBandwidth() / (1000 * 100);
     mib.systemFrameNumber = 1;
     Ptr<NrMibMessage> mibMsg = Create<NrMibMessage>();
@@ -758,14 +782,16 @@ NrGnbPhy::StartSlot(const SfnSf& startSlot)
             if (SlotAllocInfoExists(ulSfn))
             {
                 SlotAllocInfo& ulSlot = PeekSlotAllocInfo(ulSfn);
-                hasUlDci = ulSlot.ContainsDataAllocation() || ulSlot.ContainsUlCtrlAllocation();
+                hasUlDci = ulSlot.ContainsDataAllocation() || ulSlot.ContainsUlCtrlAllocation() ||
+                           ulSlot.ContainsUlMsg3Allocation();
             }
         }
         // If there is a DL CTRL, try to obtain the channel to transmit it;
         // because, even if right now there isn't any message, maybe they
         // will come from another BWP.
         if (m_currSlotAllocInfo.ContainsDataAllocation() ||
-            m_currSlotAllocInfo.ContainsDlCtrlAllocation() || hasUlDci)
+            m_currSlotAllocInfo.ContainsDlCtrlAllocation() ||
+            m_currSlotAllocInfo.ContainsUlMsg3Allocation() || hasUlDci)
         {
             // Request the channel access
             if (m_channelStatus == NONE)
@@ -881,6 +907,7 @@ NrGnbPhy::RetrievePrepareEncodeCtrlMsgs()
 {
     NS_LOG_FUNCTION(this);
     auto ctrlMsgs = PopCurrentSlotCtrlMsgs();
+    ctrlMsgs.sort();
     ctrlMsgs.merge(RetrieveMsgsFromDCIs(m_currentSlot));
 
     if (m_netDevice != nullptr)
@@ -926,7 +953,8 @@ NrGnbPhy::GenerateAllocationStatistics(const SlotAllocInfo& allocInfo) const
         NS_ASSERT(lastSymStart <= allocation.m_dci->m_symStart);
 
         auto rbgUsed = (rbg * GetNumRbPerRbg()) * allocation.m_dci->m_numSym;
-        if (allocation.m_dci->m_type == DciInfoElementTdma::DATA)
+        if (allocation.m_dci->m_type == DciInfoElementTdma::DATA ||
+            allocation.m_dci->m_type == DciInfoElementTdma::MSG3)
         {
             dataReg += rbgUsed;
         }
@@ -939,7 +967,8 @@ NrGnbPhy::GenerateAllocationStatistics(const SlotAllocInfo& allocInfo) const
         {
             symUsed += allocation.m_dci->m_numSym;
 
-            if (allocation.m_dci->m_type == DciInfoElementTdma::DATA)
+            if (allocation.m_dci->m_type == DciInfoElementTdma::DATA ||
+                allocation.m_dci->m_type == DciInfoElementTdma::MSG3)
             {
                 dataSym += allocation.m_dci->m_numSym;
             }
@@ -1093,9 +1122,37 @@ NrGnbPhy::RetrieveDciFromAllocation(const SlotAllocInfo& alloc,
     NS_LOG_FUNCTION(this);
     std::list<Ptr<NrControlMessage>> ctrlMsgs;
 
+    if (!alloc.m_buildRarList.empty())
+    {
+        Ptr<NrRarMessage> ulMsg3DciMsg = Create<NrRarMessage>();
+        for (const auto& rarIt : alloc.m_buildRarList)
+        {
+            NrRarMessage::Rar rar{};
+            // RA preamble and RNTI should be set before by MAC/scheduler
+            NS_ASSERT(rarIt.raPreambleId != 255);
+            rar.rarPayload = rarIt;
+            rar.rarPayload.k2Delay = kDelay;
+            ulMsg3DciMsg->AddRar(rar);
+
+            NS_LOG_INFO("In slot " << m_currentSlot << " PHY retrieves the RAR message for RNTI "
+                                   << rar.rarPayload.ulMsg3Dci->m_rnti << " RA preamble Id "
+                                   << +rar.rarPayload.raPreambleId << " at:" << Simulator::Now()
+                                   << " for slot:" << alloc.m_sfnSf << " kDelay:" << kDelay
+                                   << "k1Delay:" << k1Delay);
+            ulMsg3DciMsg->SetSourceBwp(GetBwpId());
+        }
+        if (kDelay != 0)
+        {
+            ctrlMsgs.push_back(ulMsg3DciMsg);
+        }
+    }
+
     for (const auto& dlAlloc : alloc.m_varTtiAllocInfo)
     {
-        if (dlAlloc.m_dci->m_type != DciInfoElementTdma::CTRL && dlAlloc.m_dci->m_format == format)
+        if (dlAlloc.m_dci->m_type != DciInfoElementTdma::CTRL &&
+            dlAlloc.m_dci->m_type != DciInfoElementTdma::MSG3 // we are sending MSG3 grant via RAR
+                                                              // message, we cannot also send UL DCI
+            && dlAlloc.m_dci->m_format == format)
         {
             auto& dciElem = dlAlloc.m_dci;
             NS_ASSERT(dciElem->m_format == format);
@@ -1132,7 +1189,7 @@ NrGnbPhy::RetrieveDciFromAllocation(const SlotAllocInfo& alloc,
             ctrlMsgs.push_back(msg);
         }
     }
-
+    ctrlMsgs.sort();
     return ctrlMsgs;
 }
 
@@ -1204,7 +1261,7 @@ NrGnbPhy::RetrieveMsgsFromDCIs(const SfnSf& currentSlot)
             NS_LOG_DEBUG("No allocation found for slot " << targetSlot);
         }
     }
-
+    ctrlMsgs.sort();
     return ctrlMsgs;
 }
 
@@ -1222,7 +1279,7 @@ NrGnbPhy::DlCtrl(const std::shared_ptr<DciInfoElementTdma>& dci)
     // The function that is filling m_ctrlMsgs is NrPhy::encodeCtrlMsgs
     if (!m_ctrlMsgs.empty())
     {
-        NS_LOG_DEBUG("ENB TXing DL CTRL with "
+        NS_LOG_DEBUG("gNB TXing DL CTRL with "
                      << m_ctrlMsgs.size() << " msgs, frame " << m_currentSlot << " symbols "
                      << static_cast<uint32_t>(dci->m_symStart) << "-"
                      << static_cast<uint32_t>(dci->m_symStart + dci->m_numSym - 1) << " start "
@@ -1256,7 +1313,7 @@ NrGnbPhy::UlCtrl(const std::shared_ptr<DciInfoElementTdma>& dci)
 
     Time varTtiPeriod = GetSymbolPeriod() * dci->m_numSym;
 
-    NS_LOG_DEBUG("ENB RXng UL CTRL frame "
+    NS_LOG_DEBUG("gNB RXng UL CTRL frame "
                  << m_currentSlot << " symbols " << static_cast<uint32_t>(dci->m_symStart) << "-"
                  << static_cast<uint32_t>(dci->m_symStart + dci->m_numSym - 1) << " start "
                  << Simulator::Now() << " end " << Simulator::Now() + varTtiPeriod);
@@ -1282,7 +1339,7 @@ NrGnbPhy::DlData(const std::shared_ptr<DciInfoElementTdma>& dci)
         return varTtiPeriod;
     }
 
-    NS_LOG_INFO("ENB TXing DL DATA frame "
+    NS_LOG_INFO("gNB TXing DL DATA frame "
                 << m_currentSlot << " symbols " << static_cast<uint32_t>(dci->m_symStart) << "-"
                 << static_cast<uint32_t>(dci->m_symStart + dci->m_numSym - 1) << " start "
                 << Simulator::Now() + NanoSeconds(1) << " end "
@@ -1336,7 +1393,12 @@ NrGnbPhy::UlData(const std::shared_ptr<DciInfoElementTdma>& dci)
             break;
         }
     }
-    NS_ASSERT(found);
+    // In case UE was not attached via NrHelper::AttachToGnb(),
+    // assume quasi omni beamforming until we have the opportunity to scan for a beam
+    if (!found)
+    {
+        ChangeBeamformingVector(nullptr);
+    }
 
     NS_LOG_INFO("GNB RXing UL DATA frame "
                 << m_currentSlot << " symbols " << static_cast<uint32_t>(dci->m_symStart) << "-"
@@ -1370,18 +1432,13 @@ NrGnbPhy::UlSrs(const std::shared_ptr<DciInfoElementTdma>& dci)
     m_spectrumPhy->AddExpectedSrsRnti(dci->m_rnti);
 
     bool found = false;
-    uint16_t notValidRntiCounter =
-        0; // count if there are in the list of devices without initialized RNTI (rnti = 0)
+
     // if yes, and the rnti for the current SRS is not found in the list,
     // the code will not abort
     for (auto& i : m_deviceMap)
     {
         Ptr<NrUeNetDevice> ueDev = DynamicCast<NrUeNetDevice>(i);
         uint64_t ueRnti = (DynamicCast<NrUePhy>(ueDev->GetPhy(0)))->GetRnti();
-        if (ueRnti == 0)
-        {
-            notValidRntiCounter++;
-        }
         if (dci->m_rnti == ueRnti)
         {
             // Even if we change the beamforming vector, we hope that the scheduler
@@ -1393,12 +1450,11 @@ NrGnbPhy::UlSrs(const std::shared_ptr<DciInfoElementTdma>& dci)
         }
     }
 
-    NS_ABORT_MSG_IF(!found && (notValidRntiCounter == 0),
-                    "All RNTIs are already set (all UEs received RAR message), "
-                    "but the RNTI for this SRS was not found");
-
+    // In case UE was not attached via NrHelper::AttachToGnb(),
+    // assume quasi omni beamforming until we have the opportunity to scan for a beam
     if (!found)
     {
+        ChangeBeamformingVector(nullptr);
         NS_LOG_WARN("The UE for which is scheduled this SRS does not have yet initialized RNTI. "
                     "RAR message was not received yet.");
     }
@@ -1430,7 +1486,7 @@ NrGnbPhy::StartVarTti(const std::shared_ptr<DciInfoElementTdma>& dci)
             varTtiPeriod = UlCtrl(dci);
         }
     }
-    else if (dci->m_type == DciInfoElementTdma::DATA)
+    else if (dci->m_type == DciInfoElementTdma::DATA || dci->m_type == DciInfoElementTdma::MSG3)
     {
         if (dci->m_format == DciInfoElementTdma::DL)
         {
@@ -1475,6 +1531,13 @@ NrGnbPhy::EndSlot()
     }
 
     NS_LOG_DEBUG("Slot started at " << m_lastSlotStart << " ended");
+
+    if (m_nrFhPhySapProvider)
+    {
+        NS_LOG_DEBUG("End slot notified from PHY"); // TODO: Add active UEs nad BWPs?
+        m_nrFhPhySapProvider->NotifyEndSlot(GetBwpId(), m_currentSlot);
+    }
+
     m_currentSlot.Add(1);
     Simulator::Schedule(slotStart, &NrGnbPhy::StartSlot, this, m_currentSlot);
 }
@@ -1506,7 +1569,12 @@ NrGnbPhy::SendDataChannels(const Ptr<PacketBurst>& pb,
                 break;
             }
         }
-        NS_ABORT_IF(!found);
+        // In case UE was not attached via NrHelper::AttachToGnb(),
+        // assume quasi omni beamforming until we have the opportunity to scan for a beam
+        if (!found)
+        {
+            ChangeBeamformingVector(nullptr);
+        }
     }
 
     // in the map we stored the RBG allocated by the MAC for this symbol.
@@ -1539,8 +1607,59 @@ NrGnbPhy::SendCtrlChannels(const Time& varTtiPeriod)
     // bandwidth.
     SetSubChannels(fullBwRb, fullBwRb.size());
 
-    m_spectrumPhy->StartTxDlControlFrames(m_ctrlMsgs, varTtiPeriod);
-    m_ctrlMsgs.clear();
+    if (m_nrFhPhySapProvider &&
+        m_nrFhPhySapProvider->GetFhControlMethod() == NrFhControl::FhControlMethod::Dropping)
+    {
+        std::vector<Ptr<NrControlMessage>> fhCtrlMsgs(m_ctrlMsgs.begin(), m_ctrlMsgs.end());
+        auto rng = std::default_random_engine{};
+        std::shuffle(std::begin(fhCtrlMsgs), std::end(fhCtrlMsgs), rng);
+
+        for (auto ctrlIt = fhCtrlMsgs.begin(); ctrlIt != fhCtrlMsgs.end(); /* no incr */)
+        {
+            Ptr<NrControlMessage> msg = (*ctrlIt);
+            if (msg->GetMessageType() == NrControlMessage::DL_DCI)
+            {
+                auto dciMsg = DynamicCast<NrDlDciMessage>(msg);
+                auto dciInfoElem = dciMsg->GetDciInfoElement();
+                long rbgAssigned = std::count(dciInfoElem->m_rbgBitmask.begin(),
+                                              dciInfoElem->m_rbgBitmask.end(),
+                                              1);
+
+                if (DoesFhAllocationFit(GetBwpId(),
+                                        dciInfoElem->m_mcs,
+                                        rbgAssigned * dciInfoElem->m_numSym,
+                                        dciInfoElem->m_rank) == 0)
+                {
+                    // drop DL DCI because data does not fit in available FH BW
+                    ctrlIt = fhCtrlMsgs.erase(ctrlIt);
+                    m_ctrlMsgs.remove(msg);
+                }
+                else
+                {
+                    ++ctrlIt;
+                    m_nrFhPhySapProvider->UpdateTracesBasedOnDroppedData(GetBwpId(),
+                                                                         dciInfoElem->m_mcs,
+                                                                         rbgAssigned,
+                                                                         dciInfoElem->m_numSym,
+                                                                         dciInfoElem->m_rank);
+                }
+            }
+            else
+            {
+                ++ctrlIt;
+            }
+        }
+        if (!m_ctrlMsgs.empty())
+        {
+            m_spectrumPhy->StartTxDlControlFrames(m_ctrlMsgs, varTtiPeriod);
+        }
+        m_ctrlMsgs.clear();
+    }
+    else
+    {
+        m_spectrumPhy->StartTxDlControlFrames(m_ctrlMsgs, varTtiPeriod);
+        m_ctrlMsgs.clear();
+    }
 }
 
 bool
@@ -1586,7 +1705,7 @@ NrGnbPhy::GenerateDataCqiReport(const SpectrumValue& sinr)
         //   double sinrdb = 10 * std::log10 ((*it));
         //       NS_LOG_INFO ("ULCQI RB " << i << " value " << sinrdb);
         // convert from double to fixed point notaltion Sxxxxxxxxxxx.xxx
-        //   int16_t sinrFp = LteFfConverter::double2fpS11dot3 (sinrdb);
+        //   int16_t sinrFp = nr::FfConverter::double2fpS11dot3 (sinrdb);
         ulcqi.m_ulCqi.m_sinr.push_back(
             *it); // will be processed by NrMacSchedulerCQIManagement::UlSBCQIReported, it will look
                   // into a map of assignment
@@ -1711,13 +1830,13 @@ NrGnbPhy::DoSetSrsConfigurationIndex(uint16_t rnti, uint16_t srcCi)
 }
 
 void
-NrGnbPhy::DoSetMasterInformationBlock([[maybe_unused]] LteRrcSap::MasterInformationBlock mib)
+NrGnbPhy::DoSetMasterInformationBlock([[maybe_unused]] NrRrcSap::MasterInformationBlock mib)
 {
     NS_LOG_FUNCTION(this);
 }
 
 void
-NrGnbPhy::DoSetSystemInformationBlockType1(LteRrcSap::SystemInformationBlockType1 sib1)
+NrGnbPhy::DoSetSystemInformationBlockType1(NrRrcSap::SystemInformationBlockType1 sib1)
 {
     NS_LOG_FUNCTION(this);
     m_sib1 = sib1;

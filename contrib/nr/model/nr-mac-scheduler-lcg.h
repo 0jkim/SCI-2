@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -7,8 +5,8 @@
 #pragma once
 
 #include "nr-mac-sched-sap.h"
+#include "nr-phy-mac-common.h"
 
-#include <ns3/ff-mac-common.h>
 #include <ns3/nstime.h>
 
 #include <memory>
@@ -35,7 +33,7 @@ class NrMacSchedulerLC
      * \brief NrMacSchedulerLC constructor
      * \param conf Configuration of the LC
      */
-    NrMacSchedulerLC(const LogicalChannelConfigListElement_s& conf);
+    NrMacSchedulerLC(const nr::LogicalChannelConfigListElement_s& conf);
     /**
      * \brief NrMacSchedulerLC default constructor (deletec)
      */
@@ -201,6 +199,8 @@ class NrMacSchedulerLCG
      * \param type String representing the type of allocation currently in act (DL or UL)
      */
     void AssignedData(uint8_t lcId, uint32_t size, std::string type);
+
+    void ReleaseLC(uint8_t lcId);
 
   private:
     uint8_t m_id{0};                            //!< ID of the LCG

@@ -15,10 +15,10 @@ FIGURES = $(SOURCE)/figures
 # specify dia figures from which .png and .pdf figures need to be built
 
 IMAGES_DIA = \
-	$(FIGURES)/EpcEnbApplication-RecvFromS1uSocket-packet.dia \
+	$(FIGURES)/EpcGnbApplication-RecvFromS1uSocket-packet.dia \
 	$(FIGURES)/entities.dia \
-	$(FIGURES)/LtePdcp-DoTransmitPdcpSdu-packet.dia \
-	$(FIGURES)/LteRlcUm-DoNotifyTxOpportunity-fragmentation.dia \
+	$(FIGURES)/NrPdcp-DoTransmitPdcpSdu-packet.dia \
+	$(FIGURES)/NrRlcUm-DoNotifyTxOpportunity-fragmentation.dia \
 	$(FIGURES)/nr-gnb.dia \
 	$(FIGURES)/nr-ue.dia
 
@@ -60,7 +60,7 @@ IMAGES_BUILD = \
 
 IMAGES = $(IMAGES_NOBUILD) $(IMAGES_BUILD)
 
-RESCALE = ../../../utils/rescale-pdf.sh
+RESCALE = ../tools/rescale-pdf.sh
 
 %.eps : %.dia; $(DIA) -t eps $< -e $@
 %.png : %.dia; $(DIA) -t png $< -e $@

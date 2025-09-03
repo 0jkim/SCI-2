@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -25,7 +23,7 @@ class NrMacRxTrace : public Object
     static TypeId GetTypeId();
 
     /**
-     *  Trace sink for Enb Mac Received Control Messages.
+     *  Trace sink for Gnb Mac Received Control Messages.
      *
      * \param [in] frame Frame number.
      * \param [in] subframe Subframe number.
@@ -45,7 +43,7 @@ class NrMacRxTrace : public Object
                                            Ptr<const NrControlMessage> msg);
 
     /**
-     *  Trace sink for Enb Mac Transmitted Control Messages.
+     *  Trace sink for Gnb Mac Transmitted Control Messages.
      *
      * \param [in] frame Frame number.
      * \param [in] subframe Subframe number.

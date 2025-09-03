@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -12,9 +10,12 @@
 
 #include "nr-mac-scheduler-ofdma.h"
 
+#include "nr-fh-control.h"
+
 #include <ns3/log.h>
 
 #include <algorithm>
+#include <random>
 
 namespace ns3
 {
@@ -179,13 +180,13 @@ NrMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeDl)
 
         for (auto& ue : ueVector)
         {
-            BeforeDlSched(ue, FTResources(rbgAssignable * beamSym, beamSym));
+            BeforeDlSched(ue, FTResources(rbgAssignable, beamSym));
         }
 
         while (resources > 0)
         {
             GetFirst GetUe;
-            std::sort(ueVector.begin(), ueVector.end(), GetUeCompareDlFn());
+            std::stable_sort(ueVector.begin(), ueVector.end(), GetUeCompareDlFn());
             auto schedInfoIt = ueVector.begin();
 
             // Ensure fairness: pass over UEs which already has enough resources to transmit
@@ -202,6 +203,36 @@ NrMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeDl)
                 }
             }
 
+            if (m_nrFhSchedSapProvider)
+            {
+                if (m_nrFhSchedSapProvider->GetFhControlMethod() ==
+                    NrFhControl::FhControlMethod::OptimizeRBs)
+                {
+                    uint32_t quantizationStep = rbgAssignable;
+                    while (schedInfoIt != ueVector.end())
+                    {
+                        uint32_t maxAssignable = m_nrFhSchedSapProvider->GetMaxRegAssignable(
+                            GetBwpId(),
+                            GetUe(*schedInfoIt)->m_dlMcs,
+                            GetUe(*schedInfoIt)->m_rnti,
+                            GetUe(*schedInfoIt)->m_dlRank); // maxAssignable is in REGs
+                        // set a minimum of the maxAssignable equal to 5 RBGs
+                        maxAssignable = std::max(maxAssignable, 5 * rbgAssignable);
+
+                        // the minimum allocation is one resource in freq, containing rbgAssignable
+                        // in time (REGs)
+                        if (GetUe(*schedInfoIt)->m_dlRBG + quantizationStep > maxAssignable)
+                        {
+                            schedInfoIt++;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+
             // In the case that all the UE already have their requirements fulfilled,
             // then stop the beam processing and pass to the next
             if (schedInfoIt == ueVector.end())
@@ -209,20 +240,28 @@ NrMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeDl)
                 break;
             }
 
-            // Assign 1 RBG for each available symbols for the beam,
-            // and then update the count of available resources
-            GetUe(*schedInfoIt)->m_dlRBG += rbgAssignable;
-            assigned.m_rbg += rbgAssignable;
+            do
+            {
+                // Assign 1 RBG for each available symbols for the beam,
+                // and then update the count of available resources
+                GetUe(*schedInfoIt)->m_dlRBG += rbgAssignable;
+                assigned.m_rbg += rbgAssignable;
 
-            GetUe(*schedInfoIt)->m_dlSym = beamSym;
-            assigned.m_sym = beamSym;
+                GetUe(*schedInfoIt)->m_dlSym = beamSym;
+                assigned.m_sym = beamSym;
 
-            resources -= 1; // Resources are RBG, so they do not consider the beamSym
+                resources -= 1; // Resources are RBG, so they do not consider the beamSym
 
-            // Update metrics
-            NS_LOG_DEBUG("Assigned " << rbgAssignable << " DL RBG, spanned over " << beamSym
-                                     << " SYM, to UE " << GetUe(*schedInfoIt)->m_rnti);
-            AssignedDlResources(*schedInfoIt, FTResources(rbgAssignable, beamSym), assigned);
+                // Update metrics
+                NS_LOG_DEBUG("Assigned " << rbgAssignable << " DL RBG, spanned over " << beamSym
+                                         << " SYM, to UE " << GetUe(*schedInfoIt)->m_rnti);
+                // Following call to AssignedDlResources would update the
+                // TB size in the NrMacSchedulerUeInfo of this particular UE
+                // according the Rank Indicator reported by it. Only one call
+                // to this method is enough even if the UE reported rank indicator 2,
+                // since the number of RBG assigned to both the streams are the same.
+                AssignedDlResources(*schedInfoIt, FTResources(rbgAssignable, beamSym), assigned);
+            } while (GetUe(*schedInfoIt)->m_dlTbSize < 10 && resources > 0);
 
             // Update metrics for the unsuccessful UEs (who did not get any resource in this
             // iteration)
@@ -231,6 +270,62 @@ NrMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeDl)
                 if (GetUe(ue)->m_rnti != GetUe(*schedInfoIt)->m_rnti)
                 {
                     NotAssignedDlResources(ue, FTResources(rbgAssignable, beamSym), assigned);
+                }
+            }
+        }
+
+        if (m_nrFhSchedSapProvider)
+        {
+            if (m_nrFhSchedSapProvider->GetFhControlMethod() ==
+                NrFhControl::FhControlMethod::OptimizeMcs)
+            {
+                GetFirst GetUe;
+                auto schedInfoIt = GetUeVector(el).begin();
+                while (schedInfoIt != GetUeVector(el).end()) // over all UEs with data
+                {
+                    if (GetUe(*schedInfoIt)->m_dlRBG > 0) // UEs with an actual allocation
+                    {
+                        uint8_t maxMcsAssignable = m_nrFhSchedSapProvider->GetMaxMcsAssignable(
+                            GetBwpId(),
+                            GetUe(*schedInfoIt)->m_dlRBG,
+                            GetUe(*schedInfoIt)->m_rnti,
+                            GetUe(*schedInfoIt)->m_dlRank); // max MCS index assignable
+
+                        NS_LOG_DEBUG("UE " << GetUe(*schedInfoIt)->m_rnti
+                                           << " MCS form sched: " << +GetUe(*schedInfoIt)->m_dlMcs
+                                           << " FH max MCS: " << +maxMcsAssignable);
+
+                        GetUe(*schedInfoIt)->m_dlMcs =
+                            std::min(GetUe(*schedInfoIt)->m_dlMcs, maxMcsAssignable);
+                    }
+                    schedInfoIt++;
+                }
+            }
+            if (GetFhControlMethod() == NrFhControl::FhControlMethod::Postponing ||
+                GetFhControlMethod() == NrFhControl::FhControlMethod::OptimizeMcs ||
+                GetFhControlMethod() == NrFhControl::FhControlMethod::OptimizeRBs)
+            {
+                GetFirst GetUe;
+                std::vector<UePtrAndBufferReq> fhUeVector;
+                fhUeVector = ueVector;
+                auto rng = std::default_random_engine{};
+                std::shuffle(std::begin(fhUeVector), std::end(fhUeVector), rng);
+                auto schedInfoIt = fhUeVector.begin();
+                while (schedInfoIt != fhUeVector.end())
+                {
+                    if (GetUe(*schedInfoIt)->m_dlRBG > 0) // UEs with an actual allocation
+                    {
+                        if (DoesFhAllocationFit(GetBwpId(),
+                                                GetUe(*schedInfoIt)->m_dlMcs,
+                                                GetUe(*schedInfoIt)->m_dlRBG,
+                                                GetUe(*schedInfoIt)->m_dlRank) == 0)
+                        {
+                            GetUe(*schedInfoIt)->m_dlRBG =
+                                0; // remove allocation if the UE does not fit in the available FH
+                                   // capacity
+                        }
+                    }
+                    schedInfoIt++;
                 }
             }
         }
@@ -271,13 +366,13 @@ NrMacSchedulerOfdma::AssignULRBG(uint32_t symAvail, const ActiveUeMap& activeUl)
 
         for (auto& ue : ueVector)
         {
-            BeforeUlSched(ue, FTResources(rbgAssignable * beamSym, beamSym));
+            BeforeUlSched(ue, FTResources(rbgAssignable, beamSym));
         }
 
         while (resources > 0)
         {
             GetFirst GetUe;
-            std::sort(ueVector.begin(), ueVector.end(), GetUeCompareUlFn());
+            std::stable_sort(ueVector.begin(), ueVector.end(), GetUeCompareUlFn());
             auto schedInfoIt = ueVector.begin();
 
             // Ensure fairness: pass over UEs which already has enough resources to transmit

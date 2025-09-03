@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2020 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -156,12 +154,8 @@ FlowMonitorOutputStats::Save(const Ptr<FlowMonitor>& monitor,
         NS_ABORT_UNLESS(ret);
         ret = m_db->Bind(stmt, 11, static_cast<uint32_t>(RngSeedManager::GetRun()));
         NS_ABORT_UNLESS(ret);
-
-        if (flowStat.second.rxPackets > 0)
-        {
-            ret = m_db->SpinExec(stmt);
-            NS_ABORT_UNLESS(ret);
-        }
+        ret = m_db->SpinExec(stmt);
+        NS_ABORT_UNLESS(ret);
     }
 
     outFile << "\n\n  Mean flow throughput: " << averageFlowThroughput / flowStats.size() << "\n";

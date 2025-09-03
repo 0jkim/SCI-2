@@ -1,21 +1,19 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
 
-#ifndef NR_ENB_MAC_H
-#define NR_ENB_MAC_H
+#ifndef NR_GNB_MAC_H
+#define NR_GNB_MAC_H
 
+#include "nr-ccm-mac-sap.h"
+#include "nr-gnb-cmac-sap.h"
 #include "nr-mac-pdu-info.h"
+#include "nr-mac-sap.h"
 #include "nr-mac-sched-sap.h"
 #include "nr-mac-scheduler.h"
 #include "nr-phy-mac-common.h"
 #include "nr-phy-sap.h"
 
-#include <ns3/lte-ccm-mac-sap.h>
-#include <ns3/lte-enb-cmac-sap.h>
-#include <ns3/lte-mac-sap.h>
 #include <ns3/traced-callback.h>
 
 namespace ns3
@@ -48,12 +46,12 @@ class BeamId;
  */
 class NrGnbMac : public Object
 {
-    friend class NrGnbMacMemberEnbCmacSapProvider;
-    friend class NrMacEnbMemberPhySapUser;
+    friend class NrGnbMacMemberGnbCmacSapProvider;
+    friend class NrMacGnbMemberPhySapUser;
     friend class NrMacMemberMacCschedSapUser;
     friend class NrMacMemberMacSchedSapUser;
-    friend class EnbMacMemberLteMacSapProvider<NrGnbMac>;
-    friend class MemberLteCcmMacSapProvider<NrGnbMac>;
+    friend class GnbMacMemberNrMacSapProvider<NrGnbMac>;
+    friend class MemberNrCcmMacSapProvider<NrGnbMac>;
 
   public:
     /**
@@ -151,22 +149,22 @@ class NrGnbMac : public Object
     NrMacCschedSapUser* GetNrMacCschedSapUser();
     void SetNrMacCschedSapProvider(NrMacCschedSapProvider* ptr);
 
-    LteMacSapProvider* GetMacSapProvider();
-    LteEnbCmacSapProvider* GetEnbCmacSapProvider();
+    NrMacSapProvider* GetMacSapProvider();
+    NrGnbCmacSapProvider* GetGnbCmacSapProvider();
 
-    void SetEnbCmacSapUser(LteEnbCmacSapUser* s);
+    void SetGnbCmacSapUser(NrGnbCmacSapUser* s);
 
     /**
      * \brief Get the gNB-ComponentCarrierManager SAP User
      * \return a pointer to the SAP User of the ComponentCarrierManager
      */
-    LteCcmMacSapProvider* GetLteCcmMacSapProvider();
+    NrCcmMacSapProvider* GetNrCcmMacSapProvider();
 
     /**
      * \brief Set the ComponentCarrierManager SAP user
      * \param s a pointer to the ComponentCarrierManager provider
      */
-    void SetLteCcmMacSapUser(LteCcmMacSapUser* s);
+    void SetNrCcmMacSapUser(NrCcmMacSapUser* s);
 
     /**
      * \brief A Beam for a user has changed
@@ -208,7 +206,7 @@ class NrGnbMac : public Object
     typedef void (*SrTracedCallback)(const uint8_t bwpId, const uint16_t rnti);
 
     /**
-     *  TracedCallback signature for Enb Mac Received Control Messages.
+     *  TracedCallback signature for Gnb Mac Received Control Messages.
      *
      * \param [in] frame Frame number.
      * \param [in] subframe Subframe number.
@@ -226,7 +224,7 @@ class NrGnbMac : public Object
                                                      Ptr<NrControlMessage>);
 
     /**
-     *  TracedCallback signature for Enb Mac Transmitted Control Messages.
+     *  TracedCallback signature for Gnb Mac Transmitted Control Messages.
      *
      * \param [in] frame Frame number.
      * \param [in] subframe Subframe number.
@@ -276,7 +274,7 @@ class NrGnbMac : public Object
     void ReceiveRachPreamble(uint32_t raId);
     void DoReceiveRachPreamble(uint32_t raId);
     void ReceiveBsrMessage(MacCeElement bsr);
-    void DoReportMacCeToScheduler(MacCeListElement_s bsr);
+    void DoReportMacCeToScheduler(nr::MacCeListElement_s bsr);
     /**
      * \brief Called by CCM to inform us that we are the addressee of a SR.
      * \param rnti RNTI that requested to be scheduled
@@ -285,9 +283,9 @@ class NrGnbMac : public Object
     void DoReceivePhyPdu(Ptr<Packet> p);
     void DoReceiveControlMessage(Ptr<NrControlMessage> msg);
     virtual void DoSchedConfigIndication(NrMacSchedSapUser::SchedConfigIndParameters ind);
-    // forwarded from LteMacSapProvider
-    void DoTransmitPdu(LteMacSapProvider::TransmitPduParameters);
-    void DoReportBufferStatus(LteMacSapProvider::ReportBufferStatusParameters);
+    // forwarded from NrMacSapProvider
+    void DoTransmitPdu(NrMacSapProvider::TransmitPduParameters);
+    void DoReportBufferStatus(NrMacSapProvider::ReportBufferStatusParameters);
     void DoUlCqiReport(NrMacSchedSapProvider::SchedUlCqiInfoReqParameters ulcqi);
     // forwarded from NrMacCchedSapUser
     void DoCschedCellConfigCnf(NrMacCschedSapUser::CschedCellConfigCnfParameters params);
@@ -298,16 +296,16 @@ class NrGnbMac : public Object
     void DoCschedUeConfigUpdateInd(NrMacCschedSapUser::CschedUeConfigUpdateIndParameters params);
     void DoCschedCellConfigUpdateInd(
         NrMacCschedSapUser::CschedCellConfigUpdateIndParameters params);
-    // forwarded from LteEnbCmacSapProvider
+    // forwarded from NrGnbCmacSapProvider
     void DoConfigureMac(uint16_t ulBandwidth, uint16_t dlBandwidth);
     void DoAddUe(uint16_t rnti);
     void DoRemoveUe(uint16_t rnti);
-    void DoAddLc(LteEnbCmacSapProvider::LcInfo lcinfo, LteMacSapUser* msu);
-    void DoReconfigureLc(LteEnbCmacSapProvider::LcInfo lcinfo);
+    void DoAddLc(NrGnbCmacSapProvider::LcInfo lcinfo, NrMacSapUser* msu);
+    void DoReconfigureLc(NrGnbCmacSapProvider::LcInfo lcinfo);
     void DoReleaseLc(uint16_t rnti, uint8_t lcid);
-    void UeUpdateConfigurationReq(LteEnbCmacSapProvider::UeConfig params);
-    LteEnbCmacSapProvider::RachConfig DoGetRachConfig();
-    LteEnbCmacSapProvider::AllocateNcRaPreambleReturnValue DoAllocateNcRaPreamble(uint16_t rnti);
+    void UeUpdateConfigurationReq(NrGnbCmacSapProvider::UeConfig params);
+    NrGnbCmacSapProvider::RachConfig DoGetRachConfig();
+    NrGnbCmacSapProvider::AllocateNcRaPreambleReturnValue DoAllocateNcRaPreamble(uint16_t rnti);
 
     /**
      * \brief Process the newly received DL HARQ feedback
@@ -321,14 +319,18 @@ class NrGnbMac : public Object
     void DoUlHarqFeedback(const UlHarqInfo& params);
 
     /**
-     * \brief Send to PHY the RAR messages
+     * \brief Create RAR elements and set DCI,
+     * RA premable to the RAR elements to be sent by
+     * PHY through RAR control message
      * \param rarList list of messages that come from scheduler
      *
      * Clears m_rapIdRntiMap.
      */
-    void SendRar(const std::vector<BuildRarListElement_s>& rarList);
+    void DoBuildRarList(SlotAllocInfo& slotAllocInfo);
 
   private:
+    bool HasMsg3Allocations(const SlotAllocInfo& slotInfo);
+
     struct NrDlHarqProcessInfo
     {
         Ptr<PacketBurst> m_pktBurst;
@@ -339,9 +341,9 @@ class NrGnbMac : public Object
 
     typedef std::vector<NrDlHarqProcessInfo> NrDlHarqProcessesBuffer_t;
 
-    LteMacSapProvider* m_macSapProvider;
-    LteEnbCmacSapProvider* m_cmacSapProvider;
-    LteEnbCmacSapUser* m_cmacSapUser;
+    NrMacSapProvider* m_macSapProvider;
+    NrGnbCmacSapProvider* m_cmacSapProvider;
+    NrGnbCmacSapUser* m_cmacSapUser;
     NrPhySapProvider* m_phySapProvider{nullptr};
     NrGnbPhySapUser* m_phySapUser;
 
@@ -351,8 +353,8 @@ class NrGnbMac : public Object
     NrMacCschedSapUser* m_macCschedSapUser;
 
     // Sap For ComponentCarrierManager 'Uplink case'
-    LteCcmMacSapProvider* m_ccmMacSapProvider; ///< CCM MAC SAP provider
-    LteCcmMacSapUser* m_ccmMacSapUser;         ///< CCM MAC SAP user
+    NrCcmMacSapProvider* m_ccmMacSapProvider; ///< CCM MAC SAP provider
+    NrCcmMacSapUser* m_ccmMacSapUser;         ///< CCM MAC SAP user
 
     int32_t m_numRbPerRbg{-1}; //!< number of resource blocks within the channel bandwidth
 
@@ -366,9 +368,33 @@ class NrGnbMac : public Object
     std::vector<NrMacSchedSapProvider::SchedUlCqiInfoReqParameters> m_ulCqiReceived;
     std::vector<MacCeElement> m_ulCeReceived; // CE received (BSR up to now)
 
-    std::unordered_map<uint8_t, uint32_t> m_receivedRachPreambleCount;
+    // start of RACH related member variables
+    uint8_t m_numberOfRaPreambles;  ///< number of RA preambles
+    uint8_t m_preambleTransMax;     ///< preamble transmit maximum
+    uint8_t m_raResponseWindowSize; ///< RA response window size
+    uint8_t m_connEstFailCount;     ///< the counter value for T300 timer expiration
 
-    std::unordered_map<uint16_t, std::unordered_map<uint8_t, LteMacSapUser*>> m_rlcAttached;
+    /**
+     * info associated with a preamble allocated for non-contention based RA
+     *
+     */
+    struct NcRaPreambleInfo
+    {
+        uint16_t rnti;   ///< rnti previously allocated for this non-contention based RA procedure
+        Time expiryTime; ///< value the expiration time of this allocation (so that stale preambles
+                         ///< can be reused)
+    };
+
+    /**
+     * map storing as key the random access preamble IDs allocated for
+     * non-contention based access, and as value the associated info
+     *
+     */
+    std::map<uint8_t, NcRaPreambleInfo> m_allocatedNcRaPreambleMap;
+    std::map<uint8_t, uint32_t> m_receivedRachPreambleCount;
+    // end of RACH related member variables
+
+    std::unordered_map<uint16_t, std::unordered_map<uint8_t, NrMacSapUser*>> m_rlcAttached;
 
     std::vector<DlHarqInfo> m_dlHarqInfoReceived; // DL HARQ feedback received
     std::vector<UlHarqInfo> m_ulHarqInfoReceived; // UL HARQ feedback received
@@ -389,7 +415,7 @@ class NrGnbMac : public Object
     SfnSf m_currentSlot;
 
     /**
-     * Trace information regarding ENB MAC Received Control Messages
+     * Trace information regarding gNB MAC Received Control Messages
      * Frame number, Subframe number, slot, VarTtti, nodeId, rnti,
      * bwpId, pointer to message in order to get the msg type
      */
@@ -397,7 +423,7 @@ class NrGnbMac : public Object
         m_macRxedCtrlMsgsTrace;
 
     /**
-     * Trace information regarding ENB MAC Transmitted Control Messages
+     * Trace information regarding gNB MAC Transmitted Control Messages
      * Frame number, Subframe number, slot, VarTtti, nodeId, rnti,
      * bwpId, pointer to message in order to get the msg type
      */
@@ -408,8 +434,14 @@ class NrGnbMac : public Object
      * Trace DL HARQ info list elements.
      */
     TracedCallback<const DlHarqInfo&> m_dlHarqFeedback;
+
+    void ProcessRaPreambles(const SfnSf& sfnSf);
+    void SetNumberOfRaPreambles(uint8_t numberOfRaPreambles);
+    void SetPreambleTransMax(uint8_t preambleTransMax);
+    void SetRaResponseWindowSize(uint8_t raResponseWindowSize);
+    void SetConnEstFailCount(uint8_t connEstFailCount);
 };
 
 } // namespace ns3
 
-#endif /* NR_ENB_MAC_H */
+#endif /* NR_GNB_MAC_H */

@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -111,7 +109,7 @@ class NrPhy : public Object
      * \param PreambleId preamble ID
      * \param Rnti RNTI
      */
-    void SendRachPreamble(uint32_t PreambleId, uint32_t Rnti);
+    virtual void SendRachPreamble(uint32_t PreambleId, uint32_t Rnti);
 
     /**
      * \brief Store the slot allocation info
@@ -324,7 +322,7 @@ class NrPhy : public Object
      * \brief Set the cell ID
      * \param cellId the cell id.
      *
-     * Called by lte-enb-cphy-sap only.
+     * Called by lte-gnb-cphy-sap only.
      */
     void DoSetCellId(uint16_t cellId);
 

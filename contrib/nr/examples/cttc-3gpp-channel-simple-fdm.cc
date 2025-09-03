@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2020 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -13,7 +11,7 @@
  * This example describes how to setup a simple simulation with the frequency
  * division multiplexing. Simulation example allows configuration of the two
  * bandwidth parts where each is dedicated to different traffic type.
- * The topology is a simple topology that consists of 1 UE and 1 eNB. There
+ * The topology is a simple topology that consists of 1 UE and 1 gNB. There
  * is one data bearer active and it will be multiplexed over a one of
  * the two bandwidth parts depending on whether the traffic is configured to
  * be low latency or not. By default the traffic is low latency. So,
@@ -44,12 +42,12 @@
 #include "ns3/antenna-module.h"
 #include "ns3/config-store.h"
 #include "ns3/core-module.h"
-#include "ns3/eps-bearer-tag.h"
 #include "ns3/internet-module.h"
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/log.h"
 #include "ns3/mobility-module.h"
 #include "ns3/network-module.h"
+#include "ns3/nr-eps-bearer-tag.h"
 #include "ns3/nr-helper.h"
 #include "ns3/nr-module.h"
 #include "ns3/nr-point-to-point-epc-helper.h"
@@ -86,7 +84,7 @@ SendPacket(Ptr<NetDevice> device, Address& addr, uint32_t packetSize)
 
     // the dedicated bearer that we activate in the simulation
     // will have bearerId = 2
-    EpsBearerTag tag(1, 2);
+    NrEpsBearerTag tag(1, 2);
     pkt->AddPacketTag(tag);
     device->Send(pkt, addr, Ipv4L3Protocol::PROT_NUMBER);
 }
@@ -136,11 +134,11 @@ ConnectPdcpRlcTraces()
 {
     // after recent changes in the EPC UE node ID has changed to 3
     // dedicated bearer that we have activated has bearer id 2
-    Config::Connect("/NodeList/*/DeviceList/*/LteUeRrc/DataRadioBearerMap/*/LtePdcp/RxPDU",
+    Config::Connect("/NodeList/*/DeviceList/*/NrUeRrc/DataRadioBearerMap/*/NrPdcp/RxPDU",
                     MakeCallback(&RxPdcpPDU));
     // after recent changes in the EPC UE node ID has changed to 3
     // dedicated bearer that we have activated has bearer id 2
-    Config::Connect("/NodeList/*/DeviceList/*/LteUeRrc/DataRadioBearerMap/*/LteRlc/RxPDU",
+    Config::Connect("/NodeList/*/DeviceList/*/NrUeRrc/DataRadioBearerMap/*/NrRlc/RxPDU",
                     MakeCallback(&RxRlcPDU));
 }
 
@@ -187,14 +185,14 @@ main(int argc, char* argv[])
     randomStream += gridScenario.AssignStreams(randomStream);
     gridScenario.CreateScenario();
 
-    Config::SetDefault("ns3::EpsBearer::Release", UintegerValue(15));
+    Config::SetDefault("ns3::NrEpsBearer::Release", UintegerValue(15));
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
 
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     // Create one operational band containing one CC with 2 bandwidth parts
     BandwidthPartInfoPtrVector allBwps;
@@ -245,23 +243,23 @@ main(int argc, char* argv[])
     nrHelper->SetUeBwpManagerAlgorithmAttribute("GBR_CONV_VOICE", UintegerValue(bwpIdForVoice));
 
     // Install and get the pointers to the NetDevices
-    NetDeviceContainer enbNetDev =
+    NetDeviceContainer gnbNetDev =
         nrHelper->InstallGnbDevice(gridScenario.GetBaseStations(), allBwps);
     NetDeviceContainer ueNetDev =
         nrHelper->InstallUeDevice(gridScenario.GetUserTerminals(), allBwps);
 
-    randomStream += nrHelper->AssignStreams(enbNetDev, randomStream);
+    randomStream += nrHelper->AssignStreams(gnbNetDev, randomStream);
     randomStream += nrHelper->AssignStreams(ueNetDev, randomStream);
 
-    // Set the attribute of the netdevice (enbNetDev.Get (0)) and bandwidth part (0)/(1)
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)
+    // Set the attribute of the netdevice (gnbNetDev.Get (0)) and bandwidth part (0)/(1)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)
         ->SetAttribute("Numerology", UintegerValue(numerologyBwp1));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 1)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 1)
         ->SetAttribute("Numerology", UintegerValue(numerologyBwp2));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)->SetTxPower(txPowerPerBwp);
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 1)->SetTxPower(txPowerPerBwp);
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)->SetTxPower(txPowerPerBwp);
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 1)->SetTxPower(txPowerPerBwp);
 
-    for (auto it = enbNetDev.Begin(); it != enbNetDev.End(); ++it)
+    for (auto it = gnbNetDev.Begin(); it != gnbNetDev.End(); ++it)
     {
         DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
     }
@@ -274,34 +272,34 @@ main(int argc, char* argv[])
     InternetStackHelper internet;
     internet.Install(gridScenario.GetUserTerminals());
     Ipv4InterfaceContainer ueIpIface;
-    ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
+    ueIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
 
     Simulator::Schedule(sendPacketTime,
                         &SendPacket,
-                        enbNetDev.Get(0),
+                        gnbNetDev.Get(0),
                         ueNetDev.Get(0)->GetAddress(),
                         packetSize);
 
-    // attach UEs to the closest eNB
-    nrHelper->AttachToClosestEnb(ueNetDev, enbNetDev);
+    // attach UEs to the closest gNB
+    nrHelper->AttachToClosestGnb(ueNetDev, gnbNetDev);
 
-    Ptr<EpcTft> tft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpf;
+    Ptr<NrEpcTft> tft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpf;
     dlpf.localPortStart = 1234;
     dlpf.localPortEnd = 1235;
     tft->Add(dlpf);
-    enum EpsBearer::Qci q;
+    enum NrEpsBearer::Qci q;
 
     if (isUll)
     {
-        q = EpsBearer::NGBR_LOW_LAT_EMBB;
+        q = NrEpsBearer::NGBR_LOW_LAT_EMBB;
     }
     else
     {
-        q = EpsBearer::GBR_CONV_VOICE;
+        q = NrEpsBearer::GBR_CONV_VOICE;
     }
 
-    EpsBearer bearer(q);
+    NrEpsBearer bearer(q);
     nrHelper->ActivateDedicatedEpsBearer(ueNetDev, bearer, tft);
 
     Simulator::Schedule(Seconds(0.2), &ConnectPdcpRlcTraces);

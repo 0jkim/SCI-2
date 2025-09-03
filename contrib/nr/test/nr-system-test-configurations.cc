@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -61,19 +59,19 @@ NrSystemTestConfigurationsTestCase1::DoRun()
     double hUT = 1.5;  // user antenna height in meters;
 
     // create base stations and mobile terminals
-    NodeContainer enbNode;
+    NodeContainer gnbNode;
     NodeContainer ueNode;
-    enbNode.Create(1);
+    gnbNode.Create(1);
     ueNode.Create(1);
 
     // position the base stations
-    Ptr<ListPositionAllocator> enbPositionAlloc = CreateObject<ListPositionAllocator>();
-    enbPositionAlloc->Add(Vector(0.0, 0.0, hBS));
+    Ptr<ListPositionAllocator> gnbPositionAlloc = CreateObject<ListPositionAllocator>();
+    gnbPositionAlloc->Add(Vector(0.0, 0.0, hBS));
 
-    MobilityHelper enbmobility;
-    enbmobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-    enbmobility.SetPositionAllocator(enbPositionAlloc);
-    enbmobility.Install(enbNode);
+    MobilityHelper gnbMobility;
+    gnbMobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    gnbMobility.SetPositionAllocator(gnbPositionAlloc);
+    gnbMobility.Install(gnbNode);
 
     // position the mobile terminals and enable the mobility
     MobilityHelper uemobility;
@@ -82,13 +80,13 @@ NrSystemTestConfigurationsTestCase1::DoRun()
 
     ueNode.Get(0)->GetObject<MobilityModel>()->SetPosition(Vector(0, 10, hUT));
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
 
     // Put the pointers inside nrHelper
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     BandwidthPartInfoPtrVector allBwps;
     CcBwpCreator ccBwpCreator;
@@ -116,10 +114,10 @@ NrSystemTestConfigurationsTestCase1::DoRun()
     nrHelper->SetSchedulerTypeId(TypeId::LookupByName(m_scheduler));
 
     // install nr net devices
-    NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice(enbNode, allBwps);
+    NetDeviceContainer gnbNetDev = nrHelper->InstallGnbDevice(gnbNode, allBwps);
     NetDeviceContainer ueNetDev = nrHelper->InstallUeDevice(ueNode, allBwps);
 
-    for (auto it = enbNetDev.Begin(); it != enbNetDev.End(); ++it)
+    for (auto it = gnbNetDev.Begin(); it != gnbNetDev.End(); ++it)
     {
         DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
     }
@@ -131,7 +129,7 @@ NrSystemTestConfigurationsTestCase1::DoRun()
 
     // create the internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -153,7 +151,7 @@ NrSystemTestConfigurationsTestCase1::DoRun()
     remoteHostStaticRouting->AddNetworkRouteTo(Ipv4Address("7.0.0.0"), Ipv4Mask("255.0.0.0"), 1);
     internet.Install(ueNode);
     Ipv4InterfaceContainer ueIpIface;
-    ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
+    ueIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
     // assign IP address to UEs, and install UDP downlink applications
     uint16_t dlPort = 1234;
     ApplicationContainer clientApps;
@@ -163,7 +161,7 @@ NrSystemTestConfigurationsTestCase1::DoRun()
     // Set the default gateway for the UE
     Ptr<Ipv4StaticRouting> ueStaticRouting =
         ipv4RoutingHelper.GetStaticRouting(ue->GetObject<Ipv4>());
-    ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+    ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
 
     UdpServerHelper dlPacketSinkHelper(dlPort);
     serverApps.Add(dlPacketSinkHelper.Install(ueNode.Get(0)));
@@ -179,8 +177,8 @@ NrSystemTestConfigurationsTestCase1::DoRun()
     serverApps.Stop(MilliSeconds(800));
     clientApps.Stop(MilliSeconds(800));
 
-    // attach UEs to the closest eNB
-    nrHelper->AttachToClosestEnb(ueNetDev, enbNetDev);
+    // attach UEs to the closest gNB
+    nrHelper->AttachToClosestGnb(ueNetDev, gnbNetDev);
 
     Simulator::Stop(MilliSeconds(800));
     Simulator::Run();

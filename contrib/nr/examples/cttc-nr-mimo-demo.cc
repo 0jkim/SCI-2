@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2023 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -50,6 +48,7 @@ main(int argc, char* argv[])
 {
     Config::SetDefault("ns3::NrHelper::EnableMimoFeedback", BooleanValue(true));
     Config::SetDefault("ns3::NrPmSearch::SubbandSize", UintegerValue(16));
+    bool useMimoPmiParams = false;
 
     NrHelper::AntennaParams apUe;
     NrHelper::AntennaParams apGnb;
@@ -213,6 +212,7 @@ main(int argc, char* argv[])
                  simTag);
     cmd.AddValue("outputDir", "directory where to store simulation results", outputDir);
     cmd.AddValue("logging", "Enable logging", logging);
+    cmd.AddValue("useMimoPmiParams", "Configure via the MimoPmiParams structure", useMimoPmiParams);
     // Parse the command line
     cmd.Parse(argc, argv);
 
@@ -229,10 +229,10 @@ main(int argc, char* argv[])
     {
         LogComponentEnable("UdpClient", LOG_LEVEL_INFO);
         LogComponentEnable("UdpServer", LOG_LEVEL_INFO);
-        LogComponentEnable("LtePdcp", LOG_LEVEL_INFO);
+        LogComponentEnable("NrPdcp", LOG_LEVEL_INFO);
     }
 
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
     Config::SetDefault("ns3::ThreeGppChannelModel::UpdatePeriod",
                        TimeValue(MilliSeconds(updatePeriodMs)));
 
@@ -282,11 +282,11 @@ main(int argc, char* argv[])
     /**
      * Create the NR helpers that will be used to create and setup NR devices, spectrum, ...
      */
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
     /**
      * Prepare spectrum. Prepare one operational band, containing
      * one component carrier, and a single bandwidth part
@@ -324,7 +324,17 @@ main(int argc, char* argv[])
     idealBeamformingHelper->SetAttribute("BeamformingMethod",
                                          TypeIdValue(TypeId::LookupByName(beamformingMethod)));
     // Core latency
-    epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    nrEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+
+    // We can configure not only via Configure::SetDefault, but also via the MimoPmiParams structure
+    if (useMimoPmiParams)
+    {
+        ns3::NrHelper::MimoPmiParams params;
+        params.subbandSize = 8;
+        params.fullSearchCb = "ns3::NrCbTypeOneSp";
+        params.pmSearchMethod = "ns3::NrPmSearchFull";
+        nrHelper->SetupMimoPmi(params);
+    }
 
     /**
      * Configure gNb antenna
@@ -354,13 +364,13 @@ main(int argc, char* argv[])
     /**
      * Finally, create the gNB and the UE device.
      */
-    NetDeviceContainer enbNetDev = nrHelper->InstallGnbDevice(gnbContainer, allBwps);
+    NetDeviceContainer gnbNetDev = nrHelper->InstallGnbDevice(gnbContainer, allBwps);
     NetDeviceContainer ueNetDev = nrHelper->InstallUeDevice(ueContainer, allBwps);
 
     if (enableInterfNode && interfPolSlantDelta != 0)
     {
         // reconfigure the polarization slant angle of the interferer
-        nrHelper->GetGnbPhy(enbNetDev.Get(1), 0)
+        nrHelper->GetGnbPhy(gnbNetDev.Get(1), 0)
             ->GetSpectrumPhy()
             ->GetAntenna()
             ->SetAttribute("PolSlantAngle",
@@ -378,13 +388,13 @@ main(int argc, char* argv[])
      * reproducibility of the results.
      */
     int64_t randomStream = 1;
-    randomStream += nrHelper->AssignStreams(enbNetDev, randomStream);
+    randomStream += nrHelper->AssignStreams(gnbNetDev, randomStream);
     randomStream += nrHelper->AssignStreams(ueNetDev, randomStream);
 
     // When all the configuration is done, explicitly call UpdateConfig ()
     // TODO: Check if this is necessary to call when we do not reconfigure anything after devices
     // have been created
-    for (auto it = enbNetDev.Begin(); it != enbNetDev.End(); ++it)
+    for (auto it = gnbNetDev.Begin(); it != gnbNetDev.End(); ++it)
     {
         DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
     }
@@ -396,7 +406,7 @@ main(int argc, char* argv[])
 
     // create the Internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -417,17 +427,18 @@ main(int argc, char* argv[])
         ipv4RoutingHelper.GetStaticRouting(remoteHost->GetObject<Ipv4>());
     remoteHostStaticRouting->AddNetworkRouteTo(Ipv4Address("7.0.0.0"), Ipv4Mask("255.0.0.0"), 1);
     internet.Install(ueContainer);
-    Ipv4InterfaceContainer ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
+    Ipv4InterfaceContainer ueIpIface =
+        nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
     // Set the default gateway for the UE
     Ptr<Ipv4StaticRouting> ueStaticRouting =
         ipv4RoutingHelper.GetStaticRouting(ueContainer.Get(0)->GetObject<Ipv4>());
-    ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+    ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
 
     // attach each UE to its gNB according to desired scenario
-    nrHelper->AttachToEnb(ueNetDev.Get(0), enbNetDev.Get(0));
+    nrHelper->AttachToGnb(ueNetDev.Get(0), gnbNetDev.Get(0));
     if (enableInterfNode)
     {
-        nrHelper->AttachToEnb(ueNetDev.Get(1), enbNetDev.Get(1));
+        nrHelper->AttachToGnb(ueNetDev.Get(1), gnbNetDev.Get(1));
     }
 
     /**
@@ -450,11 +461,11 @@ main(int argc, char* argv[])
     dlClient.SetAttribute("Interval", TimeValue(packetInterval));
 
     // The bearer that will carry the traffic
-    EpsBearer epsBearer(EpsBearer::NGBR_LOW_LAT_EMBB);
+    NrEpsBearer epsBearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
 
     // The filter for the traffic
-    Ptr<EpcTft> dlTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlPktFilter;
+    Ptr<NrEpcTft> dlTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlPktFilter;
     dlPktFilter.localPortStart = dlPort;
     dlPktFilter.localPortEnd = dlPort;
     dlTft->Add(dlPktFilter);

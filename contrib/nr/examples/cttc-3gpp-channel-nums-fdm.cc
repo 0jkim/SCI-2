@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -116,7 +114,7 @@ main(int argc, char* argv[])
     NS_ABORT_IF(centralFrequencyBand1 > 100e9);
     NS_ABORT_IF(centralFrequencyBand2 > 100e9);
 
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
 
     int64_t randomStream = 1;
 
@@ -139,13 +137,13 @@ main(int argc, char* argv[])
      * TODO: Add a print, or a plot, that shows the scenario.
      */
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
 
     // Put the pointers inside nrHelper
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     BandwidthPartInfoPtrVector allBwps;
     CcBwpCreator ccBwpCreator;
@@ -192,7 +190,7 @@ main(int argc, char* argv[])
                                          TypeIdValue(DirectPathBeamforming::GetTypeId()));
 
     // Core latency
-    epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    nrEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
 
     // Antennas for all the UEs
     nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(2));
@@ -220,107 +218,107 @@ main(int argc, char* argv[])
     nrHelper->SetUeBwpManagerAlgorithmAttribute("GBR_CONV_VIDEO", UintegerValue(bwpIdForVideo));
     nrHelper->SetUeBwpManagerAlgorithmAttribute("GBR_GAMING", UintegerValue(bwpIdForGaming));
 
-    NetDeviceContainer enbNetDev =
+    NetDeviceContainer gnbNetDev =
         nrHelper->InstallGnbDevice(gridScenario.GetBaseStations(), allBwps);
     NetDeviceContainer ueNetDev =
         nrHelper->InstallUeDevice(gridScenario.GetUserTerminals(), allBwps);
 
-    randomStream += nrHelper->AssignStreams(enbNetDev, randomStream);
+    randomStream += nrHelper->AssignStreams(gnbNetDev, randomStream);
     randomStream += nrHelper->AssignStreams(ueNetDev, randomStream);
 
-    NS_ASSERT(enbNetDev.GetN() == 4);
+    NS_ASSERT(gnbNetDev.GetN() == 4);
 
     // -------------- First GNB:
 
     // BWP0, the TDD one
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)->SetAttribute("Numerology", UintegerValue(0));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)->SetAttribute("Numerology", UintegerValue(0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)
         ->SetAttribute("Pattern", StringValue("F|F|F|F|F|F|F|F|F|F|"));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)->SetAttribute("TxPower", DoubleValue(4.0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)->SetAttribute("TxPower", DoubleValue(4.0));
 
     // BWP1, FDD-DL
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 1)->SetAttribute("Numerology", UintegerValue(0));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 1)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 1)->SetAttribute("Numerology", UintegerValue(0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 1)
         ->SetAttribute("Pattern", StringValue("DL|DL|DL|DL|DL|DL|DL|DL|DL|DL|"));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 1)->SetAttribute("TxPower", DoubleValue(4.0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 1)->SetAttribute("TxPower", DoubleValue(4.0));
 
     // BWP2, FDD-UL
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 2)->SetAttribute("Numerology", UintegerValue(0));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 2)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 2)->SetAttribute("Numerology", UintegerValue(0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 2)
         ->SetAttribute("Pattern", StringValue("UL|UL|UL|UL|UL|UL|UL|UL|UL|UL|"));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 2)->SetAttribute("TxPower", DoubleValue(0.0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 2)->SetAttribute("TxPower", DoubleValue(0.0));
 
     // Link the two FDD BWP:
-    nrHelper->GetBwpManagerGnb(enbNetDev.Get(0))->SetOutputLink(2, 1);
+    nrHelper->GetBwpManagerGnb(gnbNetDev.Get(0))->SetOutputLink(2, 1);
 
     // -------------- Second GNB:
 
     // BWP0, the TDD one
-    nrHelper->GetGnbPhy(enbNetDev.Get(1), 0)->SetAttribute("Numerology", UintegerValue(1));
-    nrHelper->GetGnbPhy(enbNetDev.Get(1), 0)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(1), 0)->SetAttribute("Numerology", UintegerValue(1));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(1), 0)
         ->SetAttribute("Pattern", StringValue("F|F|F|F|F|F|F|F|F|F|"));
-    nrHelper->GetGnbPhy(enbNetDev.Get(1), 0)->SetAttribute("TxPower", DoubleValue(4.0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(1), 0)->SetAttribute("TxPower", DoubleValue(4.0));
 
     // BWP1, FDD-DL
-    nrHelper->GetGnbPhy(enbNetDev.Get(1), 1)->SetAttribute("Numerology", UintegerValue(1));
-    nrHelper->GetGnbPhy(enbNetDev.Get(1), 1)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(1), 1)->SetAttribute("Numerology", UintegerValue(1));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(1), 1)
         ->SetAttribute("Pattern", StringValue("DL|DL|DL|DL|DL|DL|DL|DL|DL|DL|"));
-    nrHelper->GetGnbPhy(enbNetDev.Get(1), 1)->SetAttribute("TxPower", DoubleValue(4.0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(1), 1)->SetAttribute("TxPower", DoubleValue(4.0));
 
     // BWP2, FDD-UL
-    nrHelper->GetGnbPhy(enbNetDev.Get(1), 2)->SetAttribute("Numerology", UintegerValue(1));
-    nrHelper->GetGnbPhy(enbNetDev.Get(1), 2)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(1), 2)->SetAttribute("Numerology", UintegerValue(1));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(1), 2)
         ->SetAttribute("Pattern", StringValue("UL|UL|UL|UL|UL|UL|UL|UL|UL|UL|"));
-    nrHelper->GetGnbPhy(enbNetDev.Get(1), 2)->SetAttribute("TxPower", DoubleValue(0.0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(1), 2)->SetAttribute("TxPower", DoubleValue(0.0));
 
     // Link the two FDD BWP:
-    nrHelper->GetBwpManagerGnb(enbNetDev.Get(1))->SetOutputLink(2, 1);
+    nrHelper->GetBwpManagerGnb(gnbNetDev.Get(1))->SetOutputLink(2, 1);
 
     // -------------- Third GNB:
 
     // BWP0, the TDD one
-    nrHelper->GetGnbPhy(enbNetDev.Get(2), 0)->SetAttribute("Numerology", UintegerValue(2));
-    nrHelper->GetGnbPhy(enbNetDev.Get(2), 0)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(2), 0)->SetAttribute("Numerology", UintegerValue(2));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(2), 0)
         ->SetAttribute("Pattern", StringValue("F|F|F|F|F|F|F|F|F|F|"));
-    nrHelper->GetGnbPhy(enbNetDev.Get(2), 0)->SetAttribute("TxPower", DoubleValue(4.0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(2), 0)->SetAttribute("TxPower", DoubleValue(4.0));
 
     // BWP1, FDD-DL
-    nrHelper->GetGnbPhy(enbNetDev.Get(2), 1)->SetAttribute("Numerology", UintegerValue(2));
-    nrHelper->GetGnbPhy(enbNetDev.Get(2), 1)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(2), 1)->SetAttribute("Numerology", UintegerValue(2));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(2), 1)
         ->SetAttribute("Pattern", StringValue("DL|DL|DL|DL|DL|DL|DL|DL|DL|DL|"));
-    nrHelper->GetGnbPhy(enbNetDev.Get(2), 1)->SetAttribute("TxPower", DoubleValue(4.0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(2), 1)->SetAttribute("TxPower", DoubleValue(4.0));
 
     // BWP2, FDD-UL
-    nrHelper->GetGnbPhy(enbNetDev.Get(2), 2)->SetAttribute("Numerology", UintegerValue(2));
-    nrHelper->GetGnbPhy(enbNetDev.Get(2), 2)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(2), 2)->SetAttribute("Numerology", UintegerValue(2));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(2), 2)
         ->SetAttribute("Pattern", StringValue("UL|UL|UL|UL|UL|UL|UL|UL|UL|UL|"));
-    nrHelper->GetGnbPhy(enbNetDev.Get(2), 2)->SetAttribute("TxPower", DoubleValue(0.0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(2), 2)->SetAttribute("TxPower", DoubleValue(0.0));
 
     // Link the two FDD BWP:
-    nrHelper->GetBwpManagerGnb(enbNetDev.Get(2))->SetOutputLink(2, 1);
+    nrHelper->GetBwpManagerGnb(gnbNetDev.Get(2))->SetOutputLink(2, 1);
 
     // -------------- Fourth GNB:
 
     // BWP0, the TDD one
-    nrHelper->GetGnbPhy(enbNetDev.Get(3), 0)->SetAttribute("Numerology", UintegerValue(3));
-    nrHelper->GetGnbPhy(enbNetDev.Get(3), 0)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(3), 0)->SetAttribute("Numerology", UintegerValue(3));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(3), 0)
         ->SetAttribute("Pattern", StringValue("F|F|F|F|F|F|F|F|F|F|"));
-    nrHelper->GetGnbPhy(enbNetDev.Get(3), 0)->SetAttribute("TxPower", DoubleValue(4.0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(3), 0)->SetAttribute("TxPower", DoubleValue(4.0));
 
     // BWP1, FDD-DL
-    nrHelper->GetGnbPhy(enbNetDev.Get(3), 1)->SetAttribute("Numerology", UintegerValue(3));
-    nrHelper->GetGnbPhy(enbNetDev.Get(3), 1)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(3), 1)->SetAttribute("Numerology", UintegerValue(3));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(3), 1)
         ->SetAttribute("Pattern", StringValue("DL|DL|DL|DL|DL|DL|DL|DL|DL|DL|"));
-    nrHelper->GetGnbPhy(enbNetDev.Get(3), 1)->SetAttribute("TxPower", DoubleValue(4.0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(3), 1)->SetAttribute("TxPower", DoubleValue(4.0));
 
     // BWP2, FDD-UL
-    nrHelper->GetGnbPhy(enbNetDev.Get(3), 2)->SetAttribute("Numerology", UintegerValue(3));
-    nrHelper->GetGnbPhy(enbNetDev.Get(3), 2)
+    nrHelper->GetGnbPhy(gnbNetDev.Get(3), 2)->SetAttribute("Numerology", UintegerValue(3));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(3), 2)
         ->SetAttribute("Pattern", StringValue("UL|UL|UL|UL|UL|UL|UL|UL|UL|UL|"));
-    nrHelper->GetGnbPhy(enbNetDev.Get(3), 2)->SetAttribute("TxPower", DoubleValue(0.0));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(3), 2)->SetAttribute("TxPower", DoubleValue(0.0));
 
     // Link the two FDD BWP:
-    nrHelper->GetBwpManagerGnb(enbNetDev.Get(3))->SetOutputLink(2, 1);
+    nrHelper->GetBwpManagerGnb(gnbNetDev.Get(3))->SetOutputLink(2, 1);
 
     // Set the UE routing:
 
@@ -331,7 +329,7 @@ main(int argc, char* argv[])
 
     // When all the configuration is done, explicitly call UpdateConfig ()
 
-    for (auto it = enbNetDev.Begin(); it != enbNetDev.End(); ++it)
+    for (auto it = gnbNetDev.Begin(); it != gnbNetDev.End(); ++it)
     {
         DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
     }
@@ -346,7 +344,7 @@ main(int argc, char* argv[])
 
     // create the internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -368,24 +366,25 @@ main(int argc, char* argv[])
     remoteHostStaticRouting->AddNetworkRouteTo(Ipv4Address("7.0.0.0"), Ipv4Mask("255.0.0.0"), 1);
     internet.Install(gridScenario.GetUserTerminals());
 
-    Ipv4InterfaceContainer ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
+    Ipv4InterfaceContainer ueIpIface =
+        nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ueNetDev));
 
     // Set the default gateway for the UEs
     for (uint32_t j = 0; j < gridScenario.GetUserTerminals().GetN(); ++j)
     {
         Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting(
             gridScenario.GetUserTerminals().Get(j)->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
     }
 
     // Fix the attachment of the UEs: UE_i attached to GNB_i
     for (uint32_t i = 0; i < ueNetDev.GetN(); ++i)
     {
-        auto enbDev = DynamicCast<NrGnbNetDevice>(enbNetDev.Get(i));
+        auto gnbDev = DynamicCast<NrGnbNetDevice>(gnbNetDev.Get(i));
         auto ueDev = DynamicCast<NrUeNetDevice>(ueNetDev.Get(i));
-        NS_ASSERT(enbDev != nullptr);
+        NS_ASSERT(gnbDev != nullptr);
         NS_ASSERT(ueDev != nullptr);
-        nrHelper->AttachToEnb(ueDev, enbDev);
+        nrHelper->AttachToGnb(ueDev, gnbDev);
     }
 
     /*
@@ -422,11 +421,11 @@ main(int argc, char* argv[])
     dlClientVideo.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambdaVideo)));
 
     // The bearer that will carry low latency traffic
-    EpsBearer videoBearer(EpsBearer::GBR_CONV_VIDEO);
+    NrEpsBearer videoBearer(NrEpsBearer::GBR_CONV_VIDEO);
 
     // The filter for the low-latency traffic
-    Ptr<EpcTft> videoTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpfVideo;
+    Ptr<NrEpcTft> videoTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpfVideo;
     dlpfVideo.localPortStart = dlPortVideo;
     dlpfVideo.localPortEnd = dlPortVideo;
     videoTft->Add(dlpfVideo);
@@ -439,11 +438,11 @@ main(int argc, char* argv[])
     dlClientVoice.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambdaVoice)));
 
     // The bearer that will carry voice traffic
-    EpsBearer voiceBearer(EpsBearer::GBR_CONV_VOICE);
+    NrEpsBearer voiceBearer(NrEpsBearer::GBR_CONV_VOICE);
 
     // The filter for the voice traffic
-    Ptr<EpcTft> voiceTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpfVoice;
+    Ptr<NrEpcTft> voiceTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpfVoice;
     dlpfVoice.localPortStart = dlPortVoice;
     dlpfVoice.localPortEnd = dlPortVoice;
     voiceTft->Add(dlpfVoice);
@@ -456,14 +455,14 @@ main(int argc, char* argv[])
     ulClientGaming.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambdaGaming)));
 
     // The bearer that will carry gaming traffic
-    EpsBearer gamingBearer(EpsBearer::GBR_GAMING);
+    NrEpsBearer gamingBearer(NrEpsBearer::GBR_GAMING);
 
     // The filter for the gaming traffic
-    Ptr<EpcTft> gamingTft = Create<EpcTft>();
-    EpcTft::PacketFilter ulpfGaming;
+    Ptr<NrEpcTft> gamingTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter ulpfGaming;
     ulpfGaming.remotePortStart = ulPortGaming;
     ulpfGaming.remotePortEnd = ulPortGaming;
-    ulpfGaming.direction = EpcTft::UPLINK;
+    ulpfGaming.direction = NrEpcTft::UPLINK;
     gamingTft->Add(ulpfGaming);
 
     /*
@@ -531,7 +530,7 @@ main(int argc, char* argv[])
     Simulator::Run();
 
     /*
-     * To check what was installed in the memory, i.e., BWPs of eNb Device, and its configuration.
+     * To check what was installed in the memory, i.e., BWPs of gNB Device, and its configuration.
      * Example is: Node 1 -> Device 0 -> BandwidthPartMap -> {0,1} BWPs -> NrGnbPhy -> Numerology,
     GtkConfigStore config;
     config.ConfigureAttributes ();

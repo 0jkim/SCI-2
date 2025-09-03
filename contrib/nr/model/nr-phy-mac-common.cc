@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2015, NYU WIRELESS, Tandon School of Engineering, New York University
 // Copyright (c) 2018 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
@@ -38,7 +36,7 @@ SlotAllocInfo::Merge(const SlotAllocInfo& other)
     }
 
     // Sort over the symStart of the DCI (VarTtiAllocInfo::operator <)
-    std::sort(m_varTtiAllocInfo.begin(), m_varTtiAllocInfo.end());
+    std::stable_sort(m_varTtiAllocInfo.begin(), m_varTtiAllocInfo.end());
 }
 
 bool
@@ -64,6 +62,20 @@ SlotAllocInfo::ContainsDlCtrlAllocation() const
     {
         if (allocation.m_dci->m_type == DciInfoElementTdma::CTRL &&
             allocation.m_dci->m_format == DciInfoElementTdma::DL)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool
+SlotAllocInfo::ContainsUlMsg3Allocation() const
+{
+    NS_LOG_FUNCTION(this);
+    for (const auto& allocation : m_varTtiAllocInfo)
+    {
+        if (allocation.m_dci->m_type == DciInfoElementTdma::MSG3)
         {
             return true;
         }
@@ -173,6 +185,10 @@ operator<<(std::ostream& os, const SlotAllocInfo& item)
         else if (alloc.m_dci->m_type == DciInfoElementTdma::SRS)
         {
             type = "SRS";
+        }
+        else if (alloc.m_dci->m_type == DciInfoElementTdma::MSG3)
+        {
+            type = "MSG3";
         }
         else
         {

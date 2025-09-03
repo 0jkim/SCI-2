@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2019 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -190,6 +188,7 @@ NrPhy::NrPhy()
 {
     NS_LOG_FUNCTION(this);
     m_phySapProvider = new NrMemberPhySapProvider(this);
+    SetNumerology(0); // Initialize sub-carrier spacing assuming numerology 0
 }
 
 NrPhy::~NrPhy()
@@ -326,12 +325,7 @@ NrPhy::DoSetCellId(uint16_t cellId)
 void
 NrPhy::SendRachPreamble(uint32_t PreambleId, uint32_t Rnti)
 {
-    NS_LOG_FUNCTION(this);
-    m_raPreambleId = PreambleId;
-    Ptr<NrRachPreambleMessage> msg = Create<NrRachPreambleMessage>();
-    msg->SetSourceBwp(GetBwpId());
-    msg->SetRapId(PreambleId);
-    EnqueueCtrlMsgNow(msg);
+    NS_LOG_FUNCTION(this); // overridden only in nr-ue-phy
 }
 
 void

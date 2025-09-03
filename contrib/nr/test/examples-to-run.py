@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 # -*- coding: utf-8 -*-
-## -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
 
 # A list of C++ examples to run in order to ensure that they remain
 # buildable and runnable over time.  Each tuple in the list contains
@@ -177,6 +176,11 @@ cpp_examples = [
     ("rem-beam-example", "True", "True"),
     ("rem-example", "True", "True"),
     ("cttc-nr-demo --ueNumPergNb=9", "True", "True"),
+    (
+        "cttc-nr-demo --ns3::NrMacSchedulerNs3::EnableHarqReTx=false",
+        "True",
+        "True",
+    ),
     ("cttc-nr-traffic-ngmn-mixed", "True", "True"),
     ("cttc-nr-traffic-3gpp-xr", "True", "True"),
     ("traffic-generator-example", "True", "True"),
@@ -226,12 +230,27 @@ cpp_examples = [
         "True",
     ),
     (
+        "cttc-nr-mimo-demo --bandwidth=10e6 --useMimoPmiParams=true",
+        "True",
+        "True",
+    ),
+    (
         "cttc-nr-mimo-demo --fullSearchCb=ns3::NrCbTypeOneSp --pmSearchMethod=ns3::NrPmSearchFull --bandwidth=20e6 --subbandSize=16 --downsamplingTechnique=AveragePRB",
         "True",
         "True",
     ),
     (
         "cttc-nr-mimo-demo --fullSearchCb=ns3::NrCbTypeOneSp --pmSearchMethod=ns3::NrPmSearchFull --bandwidth=40e6 --subbandSize=32 --downsamplingTechnique=AveragePRB",
+        "True",
+        "True",
+    ),
+    (
+        "cttc-nr-fh-xr --fhCapacity=5000 --fhControlMethod=OptimizeRBs --frequency=30e9 --bandwidth=400e6 --numerology=3 --deployment=SIMPLE --arUeNum=3 --vrUeNum=3 --cgUeNum=3 --voiceUeNum=3 --appDuration=3000 --enableTDD4_1=1 --enableMimoFeedback=1 --txPower=30 --distance=2 --channelUpdatePeriod=0 --channelConditionUpdatePeriod=0 --enableShadowing=0 --isLos=1 --enableHarqRetx=1 --useFixedMcs=0 --enableInterServ=0 --enablePdcpDiscarding=1 --schedulerType=PF --reorderingTimerMs=10",
+        "True",
+        "True",
+    ),
+    (
+        "cttc-nr-fh-xr --fhCapacity=2000 --fhControlMethod=OptimizeMcs --frequency=30e9 --bandwidth=400e6 --numerology=3 --deployment=SIMPLE --arUeNum=3 --vrUeNum=3 --cgUeNum=3 --voiceUeNum=3 --appDuration=3000 --enableTDD4_1=1 --enableMimoFeedback=1 --txPower=30 --distance=2 --channelUpdatePeriod=0 --channelConditionUpdatePeriod=0 --enableShadowing=0 --isLos=1 --enableHarqRetx=1 --useFixedMcs=0 --enableInterServ=0 --enablePdcpDiscarding=1 --schedulerType=PF --reorderingTimerMs=10",
         "True",
         "True",
     ),

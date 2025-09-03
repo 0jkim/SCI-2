@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) 2022 Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -141,9 +139,9 @@ main(int argc, char* argv[])
         LogComponentEnable("NrMacSchedulerTdma", logLevel1);
     }
 
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
-    Config::SetDefault("ns3::LteRlcUm::EnablePdcpDiscarding", BooleanValue(enablePdcpDiscarding));
-    Config::SetDefault("ns3::LteRlcUm::DiscardTimerMs", UintegerValue(discardTimerMs));
+    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefault("ns3::NrRlcUm::EnablePdcpDiscarding", BooleanValue(enablePdcpDiscarding));
+    Config::SetDefault("ns3::NrRlcUm::DiscardTimerMs", UintegerValue(discardTimerMs));
 
     /*
      * Create the scenario. In our examples, we heavily use helpers that setup
@@ -211,16 +209,16 @@ main(int argc, char* argv[])
     }
 
     // setup the nr simulation
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
 
     // Put the pointers inside nrHelper
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     nrHelper->SetPathlossAttribute("ShadowingEnabled", BooleanValue(false));
-    epcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    nrEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
     Config::SetDefault("ns3::ThreeGppChannelModel::UpdatePeriod", TimeValue(MilliSeconds(0)));
     nrHelper->SetChannelConditionModelAttribute("UpdatePeriod", TimeValue(MilliSeconds(0)));
 
@@ -321,20 +319,20 @@ main(int argc, char* argv[])
      * We have configured the attributes we needed. Now, install and get the pointers
      * to the NetDevices, which contains all the NR stack:
      */
-    NetDeviceContainer enbNetDev =
+    NetDeviceContainer gnbNetDev =
         nrHelper->InstallGnbDevice(gridScenario.GetBaseStations(), allBwps);
     NetDeviceContainer ue1flowNetDev = nrHelper->InstallUeDevice(ue1flowContainer, allBwps);
     NetDeviceContainer ue2flowsNetDev = nrHelper->InstallUeDevice(ue2flowsContainer, allBwps);
 
-    randomStream += nrHelper->AssignStreams(enbNetDev, randomStream);
+    randomStream += nrHelper->AssignStreams(gnbNetDev, randomStream);
     randomStream += nrHelper->AssignStreams(ue1flowNetDev, randomStream);
     randomStream += nrHelper->AssignStreams(ue2flowsNetDev, randomStream);
 
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)->SetAttribute("Numerology", UintegerValue(numerology));
-    nrHelper->GetGnbPhy(enbNetDev.Get(0), 0)->SetAttribute("TxPower", DoubleValue(10 * log10(x)));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)->SetAttribute("Numerology", UintegerValue(numerology));
+    nrHelper->GetGnbPhy(gnbNetDev.Get(0), 0)->SetAttribute("TxPower", DoubleValue(10 * log10(x)));
 
     // When all the configuration is done, explicitly call UpdateConfig ()
-    for (auto it = enbNetDev.Begin(); it != enbNetDev.End(); ++it)
+    for (auto it = gnbNetDev.Begin(); it != gnbNetDev.End(); ++it)
     {
         DynamicCast<NrGnbNetDevice>(*it)->UpdateConfig();
     }
@@ -350,7 +348,7 @@ main(int argc, char* argv[])
 
     // create the internet and install the IP stack on the UEs
     // get SGW/PGW and create a single RemoteHost
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -374,20 +372,20 @@ main(int argc, char* argv[])
 
     Ipv4InterfaceContainer ue1FlowIpIface;
     Ipv4InterfaceContainer ue2FlowsIpIface;
-    ue1FlowIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ue1flowNetDev));
-    ue2FlowsIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ue2flowsNetDev));
+    ue1FlowIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ue1flowNetDev));
+    ue2FlowsIpIface = nrEpcHelper->AssignUeIpv4Address(NetDeviceContainer(ue2flowsNetDev));
 
     // Set the default gateway for the UEs
     for (uint32_t j = 0; j < gridScenario.GetUserTerminals().GetN(); ++j)
     {
         Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting(
             gridScenario.GetUserTerminals().Get(j)->GetObject<Ipv4>());
-        ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+        ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
     }
 
     // attach UEs to the closest gNB
-    nrHelper->AttachToClosestEnb(ue1flowNetDev, enbNetDev);
-    nrHelper->AttachToClosestEnb(ue2flowsNetDev, enbNetDev);
+    nrHelper->AttachToClosestGnb(ue1flowNetDev, gnbNetDev);
+    nrHelper->AttachToClosestGnb(ue2flowsNetDev, gnbNetDev);
 
     /*
      * Traffic part. Install two kind of traffic: low-latency and voice, each
@@ -423,11 +421,11 @@ main(int argc, char* argv[])
     dlClientUe1flow.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambda1)));
 
     // The bearer that will carry UE with 1 flow Non GBR traffic
-    EpsBearer ue1flowBearer(EpsBearer::NGBR_LOW_LAT_EMBB);
+    NrEpsBearer ue1flowBearer(NrEpsBearer::NGBR_LOW_LAT_EMBB);
 
     // The filter for the UE with 1 flow Non GBR traffic
-    Ptr<EpcTft> ue1flowTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpfUe1flow;
+    Ptr<NrEpcTft> ue1flowTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpfUe1flow;
     dlpfUe1flow.localPortStart = dlPortUe1flow;
     dlpfUe1flow.localPortEnd = dlPortUe1flow;
     ue1flowTft->Add(dlpfUe1flow);
@@ -441,15 +439,15 @@ main(int argc, char* argv[])
     dlClientUe2flowsNgbr.SetAttribute("PacketSize", UintegerValue(udpPacketSize1));
     dlClientUe2flowsNgbr.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambda1)));
 
-    // GbrQosInformation qosInfoInterServ2;
+    // NrGbrQosInformation qosInfoInterServ2;
     // qosInfoInterServ2.gbrDl = 6e6; // Downlink GBR
 
     // The bearer that will carry UE with 2 Flows Non GBR traffic
-    EpsBearer ue2flowsNgbrBearer(EpsBearer::NGBR_LOW_LAT_EMBB); // qosInfoInterServ2);
+    NrEpsBearer ue2flowsNgbrBearer(NrEpsBearer::NGBR_LOW_LAT_EMBB); // qosInfoInterServ2);
 
     // The filter for the UE with 2 Flows Non GBR traffic
-    Ptr<EpcTft> ue2flowsNgbrTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpfUe2flowsNgbr;
+    Ptr<NrEpcTft> ue2flowsNgbrTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpfUe2flowsNgbr;
     dlpfUe2flowsNgbr.localPortStart = dlPortUe2flowsNgbr;
     dlpfUe2flowsNgbr.localPortEnd = dlPortUe2flowsNgbr;
     ue2flowsNgbrTft->Add(dlpfUe2flowsNgbr);
@@ -462,15 +460,15 @@ main(int argc, char* argv[])
     dlClientUe2flowsDcGbr.SetAttribute("PacketSize", UintegerValue(udpPacketSize2));
     dlClientUe2flowsDcGbr.SetAttribute("Interval", TimeValue(Seconds(1.0 / lambda2)));
 
-    GbrQosInformation qosUe2flowsDcGbr;
+    NrGbrQosInformation qosUe2flowsDcGbr;
     qosUe2flowsDcGbr.gbrDl = 5e6; // Downlink GBR
 
     // The bearer that will carry Ue 2 Flows DC GBR traffic
-    EpsBearer ue2flowsDcGbrBearer(EpsBearer::DGBR_INTER_SERV_87, qosUe2flowsDcGbr);
+    NrEpsBearer ue2flowsDcGbrBearer(NrEpsBearer::DGBR_INTER_SERV_87, qosUe2flowsDcGbr);
 
     // The filter for the 2 Flows DC GBR traffic
-    Ptr<EpcTft> ue2FlowsDcGbrTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpfUe2flowsDcGbr;
+    Ptr<NrEpcTft> ue2FlowsDcGbrTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpfUe2flowsDcGbr;
     dlpfUe2flowsDcGbr.localPortStart = dlPortUe2flowsDcGbr;
     dlpfUe2flowsDcGbr.localPortEnd = dlPortUe2flowsDcGbr;
     ue2FlowsDcGbrTft->Add(dlpfUe2flowsDcGbr);
@@ -611,7 +609,7 @@ main(int argc, char* argv[])
     }
 
     /*
-     * To check what was installed in the memory, i.e., BWPs of eNb Device, and its configuration.
+     * To check what was installed in the memory, i.e., BWPs of gNB Device, and its configuration.
      * Example is: Node 1 -> Device 0 -> BandwidthPartMap -> {0,1} BWPs -> NrGnbPhy -> Numerology,
     GtkConfigStore config;
     config.ConfigureAttributes ();

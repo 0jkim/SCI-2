@@ -1,5 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-
 // Copyright (c) Centre Tecnologic de Telecomunicacions de Catalunya (CTTC)
 //
 // SPDX-License-Identifier: GPL-2.0-only
@@ -264,11 +262,11 @@ NrUplinkPowerControlTestCase::DoRun()
     Config::SetDefault("ns3::NrUePowerControl::PsrsOffset", IntegerValue(9));
     Config::SetDefault("ns3::ThreeGppPropagationLossModel::ShadowingEnabled", BooleanValue(false));
 
-    Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper>();
+    Ptr<NrPointToPointEpcHelper> nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     Ptr<IdealBeamformingHelper> idealBeamformingHelper = CreateObject<IdealBeamformingHelper>();
     Ptr<NrHelper> nrHelper = CreateObject<NrHelper>();
     nrHelper->SetBeamformingHelper(idealBeamformingHelper);
-    nrHelper->SetEpcHelper(epcHelper);
+    nrHelper->SetEpcHelper(nrEpcHelper);
 
     // Create Nodes: eNodeB and UE
     NodeContainer gnbNodes;
@@ -364,7 +362,7 @@ NrUplinkPowerControlTestCase::DoRun()
     }
 
     // traffic configuration
-    Ptr<Node> pgw = epcHelper->GetPgwNode();
+    Ptr<Node> pgw = nrEpcHelper->GetPgwNode();
     NodeContainer remoteHostContainer;
     remoteHostContainer.Create(1);
     Ptr<Node> remoteHost = remoteHostContainer.Get(0);
@@ -386,14 +384,14 @@ NrUplinkPowerControlTestCase::DoRun()
     remoteHostStaticRouting->AddNetworkRouteTo(Ipv4Address("7.0.0.0"), Ipv4Mask("255.0.0.0"), 1);
     internet.Install(ueNodes);
 
-    Ipv4InterfaceContainer ueIpIface = epcHelper->AssignUeIpv4Address(ueDevs);
+    Ipv4InterfaceContainer ueIpIface = nrEpcHelper->AssignUeIpv4Address(ueDevs);
     // Set the default gateway for the UE
     Ptr<Ipv4StaticRouting> ueStaticRouting =
         ipv4RoutingHelper.GetStaticRouting(ueNodes.Get(0)->GetObject<Ipv4>());
-    ueStaticRouting->SetDefaultRoute(epcHelper->GetUeDefaultGatewayAddress(), 1);
+    ueStaticRouting->SetDefaultRoute(nrEpcHelper->GetUeDefaultGatewayAddress(), 1);
 
     // Attach a UE to a gNB
-    nrHelper->AttachToEnb(ueDevs.Get(0), gnbDevs.Get(0));
+    nrHelper->AttachToGnb(ueDevs.Get(0), gnbDevs.Get(0));
 
     /*
      * Traffic part. Install two kinds of traffic: low-latency and voice, each
@@ -417,9 +415,9 @@ NrUplinkPowerControlTestCase::DoRun()
     dlClient.SetAttribute("MaxPackets", UintegerValue(0xFFFFFFFF));
     dlClient.SetAttribute("PacketSize", UintegerValue(100));
     dlClient.SetAttribute("Interval", TimeValue(MilliSeconds(1)));
-    EpsBearer dlBearer(EpsBearer::GBR_CONV_VIDEO);
-    Ptr<EpcTft> dlTft = Create<EpcTft>();
-    EpcTft::PacketFilter dlpf;
+    NrEpsBearer dlBearer(NrEpsBearer::GBR_CONV_VIDEO);
+    Ptr<NrEpcTft> dlTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter dlpf;
     dlpf.localPortStart = dlPort;
     dlpf.localPortEnd = dlPort;
     dlTft->Add(dlpf);
@@ -429,12 +427,12 @@ NrUplinkPowerControlTestCase::DoRun()
     ulClient.SetAttribute("MaxPackets", UintegerValue(0xFFFFFFFF));
     ulClient.SetAttribute("PacketSize", UintegerValue(100));
     ulClient.SetAttribute("Interval", TimeValue(MilliSeconds(1)));
-    EpsBearer ulBearer(EpsBearer::GBR_CONV_VIDEO);
-    Ptr<EpcTft> ulTft = Create<EpcTft>();
-    EpcTft::PacketFilter ulpf;
+    NrEpsBearer ulBearer(NrEpsBearer::GBR_CONV_VIDEO);
+    Ptr<NrEpcTft> ulTft = Create<NrEpcTft>();
+    NrEpcTft::PacketFilter ulpf;
     ulpf.remotePortStart = ulPort;
     ulpf.remotePortEnd = ulPort;
-    ulpf.direction = EpcTft::UPLINK;
+    ulpf.direction = NrEpcTft::UPLINK;
     ulTft->Add(ulpf);
 
     ApplicationContainer clientApps;
